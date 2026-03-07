@@ -13,11 +13,8 @@ client = OpenAI(
 
 # ===== 加载向量库 =====
 print("📚 加载数学知识库...")
-embeddings = HuggingFaceEmbeddings(
-    model_name="BAAI/bge-base-zh-v1.5",
-    model_kwargs={"device": "cuda"},
-    encode_kwargs={"normalize_embeddings": True}
-)
+from langchain_community.embeddings import FakeEmbeddings
+embeddings = FakeEmbeddings(size=768)
 vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 retriever = vectordb.as_retriever(search_kwargs={"k": 4})
 print("✅ 加载完成！")
