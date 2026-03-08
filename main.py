@@ -34,7 +34,6 @@ with gr.Blocks(
     chatbot = gr.Chatbot(
         elem_id="chatbot",
         show_label=False,
-        type="messages",
         latex_delimiters=[
             {"left": "$$", "right": "$$", "display": True},
             {"left": "$", "right": "$", "display": False}
