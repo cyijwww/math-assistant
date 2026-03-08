@@ -21,7 +21,7 @@ def ask(message, history):
 
 with gr.Blocks(
     theme=gr.themes.Soft(),
-    title="小明数学助手",
+    title="小明",
     css="""
     body {margin: 0; padding: 0;}
     .gradio-container {max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
@@ -30,10 +30,11 @@ with gr.Blocks(
     footer {display: none !important;}
     """
 ) as demo:
-    gr.Markdown("## 📐 小明 - 你的专属数学助手")
+    gr.Markdown("## 📐 小明 ")
     chatbot = gr.Chatbot(
         elem_id="chatbot",
         show_label=False,
+        type="messages",
         latex_delimiters=[
             {"left": "$$", "right": "$$", "display": True},
             {"left": "$", "right": "$", "display": False}

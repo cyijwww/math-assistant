@@ -1,4 +1,4 @@
-gradio
+gradio>=4.40.0
 openai
 langchain-community
 langchain-core
