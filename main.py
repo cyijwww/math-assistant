@@ -7,7 +7,7 @@ client = OpenAI(
 )
 
 def ask(message, history):
-    messages = [{"role": "system", "content": "你叫小明，是一位专业的大学数学辅导老师，擅长解答微积分、线性代数、概率论等问题。所有数学公式必须用$$...$$包裹，例如：$$x^2+y^2=r^2$$，$$\\int_0^1 x^2 dx = \\frac{1}{3}$$。禁止使用\\(...\\)格式，只用$$...$$。请用清晰易懂的方式一步一步解答。"}]
+    messages = [{"role": "system", "content": "你叫小明，是一位专业的大学数学辅导老师。所有公式用$$...$$包裹，一步一步解答。"}]
     for item in history:
         messages.append({"role": item["role"], "content": item["content"]})
     messages.append({"role": "user", "content": message})
@@ -17,7 +17,11 @@ def ask(message, history):
         max_tokens=700,
         temperature=0.3
     )
-    return response.choices[0].message.content
+    result = response.choices[0].message.content
+    # 强制转换格式
+    result = result.replace("\\(", "$").replace("\\)", "$")
+    result = result.replace("\\[", "$$").replace("\\]", "$$")
+    return result
 
 with gr.Blocks(
     theme=gr.themes.Soft(),
