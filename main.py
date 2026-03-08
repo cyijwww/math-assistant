@@ -6,6 +6,8 @@ client = OpenAI(
     base_url="https://api.siliconflow.cn/v1"
 )
 
+import re
+
 def ask(message, history):
     messages = [{"role": "system", "content": "你叫小明，是一位专业的大学数学辅导老师。所有公式用$$...$$包裹，一步一步解答。"}]
     for item in history:
@@ -18,9 +20,10 @@ def ask(message, history):
         temperature=0.3
     )
     result = response.choices[0].message.content
-    # 强制转换格式
     result = result.replace("\\(", "$").replace("\\)", "$")
     result = result.replace("\\[", "$$").replace("\\]", "$$")
+    # 修复孤立的 $ 符号
+    result = re.sub(r'\$\s*\n\s*\$', '$$', result)
     return result
 
 with gr.Blocks(
