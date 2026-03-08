@@ -26,13 +26,15 @@ def ask(message, history):
 with gr.Blocks(
     theme=gr.themes.Soft(),
     title="小明",
-    css="""
-    body {margin: 0; padding: 0;}
-    .gradio-container {max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
-    #chatbot {height: calc(100vh - 130px) !important; overflow-y: auto;}
-    #input-row {position: fixed; bottom: 0; width: 100%; background: white; padding: 8px;}
-    footer {display: none !important;}
-    """
+css="""
+body {margin: 0; padding: 0;}
+.gradio-container {max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
+#chatbot {height: calc(100vh - 130px) !important; overflow-y: auto;}
+#input-row {position: fixed; bottom: 0; width: 100%; background: white; padding: 8px;}
+footer {display: none !important;}
+.message-bubble-border {max-width: 95% !important;}
+.bot {max-width: 95% !important;}
+"""
 ) as demo:
     gr.Markdown("## 📐 小明 ")
     chatbot = gr.Chatbot(
