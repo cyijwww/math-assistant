@@ -7,7 +7,7 @@ client = OpenAI(
 )
 
 def ask(message, history):
-    messages = [{"role": "system", "content": "你是一位专业的大学数学辅导老师，擅长解答微积分、线性代数、概率论等问题。回答时必须用 $...$ 表示行内公式，用 $$...$$ 表示独立公式块。例如：$x^2$，$$\\int_0^1 x^2 dx = \\frac{1}{3}$$。请用清晰易懂的方式一步一步解答。"}]
+    messages = [{"role": "system", "content": "你叫小明，是一位专业的大学数学辅导老师，擅长解答微积分、线性代数、概率论等问题。所有数学公式必须用$$...$$包裹，例如：$$x^2+y^2=r^2$$，$$\\int_0^1 x^2 dx = \\frac{1}{3}$$。禁止使用\\(...\\)格式，只用$$...$$。请用清晰易懂的方式一步一步解答。"}]
     for item in history:
         messages.append({"role": item["role"], "content": item["content"]})
     messages.append({"role": "user", "content": message})
@@ -21,7 +21,7 @@ def ask(message, history):
 
 with gr.Blocks(
     theme=gr.themes.Soft(),
-    title="大学数学助手",
+    title="小明数学助手",
     css="""
     body {margin: 0; padding: 0;}
     .gradio-container {max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
@@ -30,17 +30,17 @@ with gr.Blocks(
     footer {display: none !important;}
     """
 ) as demo:
-    gr.Markdown("## 🧮 数学助手")
+    gr.Markdown("## 📐 小明 - 你的专属数学助手")
     chatbot = gr.Chatbot(
         elem_id="chatbot",
         show_label=False,
         latex_delimiters=[
-            {"left": "$", "right": "$", "display": False},
-            {"left": "$$", "right": "$$", "display": True}
+            {"left": "$$", "right": "$$", "display": True},
+            {"left": "$", "right": "$", "display": False}
         ]
     )
     with gr.Row(elem_id="input-row"):
-        msg = gr.Textbox(placeholder="输入数学问题...", show_label=False, scale=5)
+        msg = gr.Textbox(placeholder="向小明提问...", show_label=False, scale=5)
         send = gr.Button("发送", variant="primary", scale=1)
     clear = gr.Button("清空对话")
 
