@@ -13,7 +13,8 @@ def fix_latex(text):
     text = re.sub(r'\$\s*\n\s*\$', '$$', text)
     return text
 
-def ask(message, history):
+def ask(message, history, deep_think):
+    model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" if deep_think else "Qwen/Qwen2.5-7B-Instruct"
     messages = [{"role": "system", "content": """你叫小明，是一位专业的大学数学辅导老师。
 回答要求：
 1. 所有数学公式必须用$$...$$包裹
@@ -25,7 +26,7 @@ def ask(message, history):
         messages.append({"role": item["role"], "content": item["content"]})
     messages.append({"role": "user", "content": message})
     response = client.chat.completions.create(
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model=model,
         messages=messages,
         max_tokens=1000,
         temperature=0.3
@@ -39,7 +40,7 @@ with gr.Blocks(
     css="""
     body {margin: 0; padding: 0;}
     .gradio-container {max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
-    #chatbot {height: calc(100vh - 120px) !important; overflow-y: auto;}
+    #chatbot {height: calc(100vh - 160px) !important; overflow-y: auto;}
     #chatbot .message {max-width: 100% !important; width: 100% !important;}
     #chatbot .bot {background: transparent !important; border: none !important; box-shadow: none !important; padding: 16px !important;}
     #chatbot .user {background: transparent !important; border: none !important; box-shadow: none !important;}
@@ -65,18 +66,20 @@ with gr.Blocks(
             lines=2
         )
         send = gr.Button("发送 🚀", variant="primary", scale=1)
-    clear = gr.Button("🗑️ 清空对话")
+    with gr.Row():
+        deep_think = gr.Checkbox(label="🧠 深度思考", value=False)
+        clear = gr.Button("🗑️ 清空对话")
 
-    def respond(message, chat_history):
+    def respond(message, chat_history, deep):
         if not message.strip():
             return "", chat_history
-        answer = ask(message, chat_history)
+        answer = ask(message, chat_history, deep)
         chat_history.append({"role": "user", "content": message})
         chat_history.append({"role": "assistant", "content": answer})
         return "", chat_history
 
-    send.click(respond, [msg, chatbot], [msg, chatbot])
-    msg.submit(respond, [msg, chatbot], [msg, chatbot])
+    send.click(respond, [msg, chatbot, deep_think], [msg, chatbot])
+    msg.submit(respond, [msg, chatbot, deep_think], [msg, chatbot])
     clear.click(lambda: [], None, chatbot)
 
 demo.launch(server_name="0.0.0.0", server_port=7860)
