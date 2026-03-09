@@ -250,3 +250,4 @@ with gr.Blocks(
     send.click(respond, [msg, chatbot, deep_think], [msg, chatbot])
     msg.submit(respond, [msg, chatbot, deep_think], [msg, chatbot])
 
+demo.launch(server_name="0.0.0.0", server_port=7860, share=False, show_error=True)
