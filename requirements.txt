@@ -4,3 +4,4 @@ langchain-community
 langchain-core
 langchain-text-splitters
 chromadb
+huggingface_hub==0.20.3
