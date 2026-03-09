@@ -1,2 +1,2 @@
 gradio>=4.44.0
-openai
+openai>=1.0.0

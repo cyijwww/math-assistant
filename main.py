@@ -26,6 +26,10 @@ def ask(message, history, deep_think):
     for item in history:
         if isinstance(item, dict):
             messages.append({"role": item["role"], "content": item["content"]})
+        else:  # 元组格式 (user, bot)
+            messages.append({"role": "user", "content": item[0]})
+            if item[1]:
+                messages.append({"role": "assistant", "content": item[1]})
     messages.append({"role": "user", "content": message})
     response = client.chat.completions.create(
         model=model,
@@ -43,8 +47,7 @@ def respond(message, chat_history, deep):
         answer = ask(message, chat_history, deep)
     except Exception as e:
         answer = f"⚠️ 请求失败：{str(e)}"
-    chat_history.append({"role": "user", "content": message})
-    chat_history.append({"role": "assistant", "content": answer})
+    chat_history.append((message, answer))  # 旧版 Gradio 用元组格式
     return "", chat_history
 
 CLAUDE_CSS = """
@@ -224,8 +227,7 @@ with gr.Blocks(
     chatbot = gr.Chatbot(
         elem_id="chatbot",
         show_label=False,
-        height=520,
-        type="messages"
+        height=520
     )
 
     with gr.Column(elem_classes="input-area"):
