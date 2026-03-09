@@ -3,7 +3,7 @@ import gradio as gr
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="你的Key",
+    api_key="sk-wubb2clgazsabsitnvnoilptbzobxxsataxnxfqgdloehity",
     base_url="https://api.siliconflow.cn/v1"
 )
 
