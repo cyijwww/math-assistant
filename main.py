@@ -1,9 +1,10 @@
 import re
+import os
 import gradio as gr
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="sk-wdbozclgazsabsitnvnoilptbzobxxsataxnxfqgdloehity",
+    api_key=os.environ.get("SILICONFLOW_API_KEY", "sk-wdbozclgazsabsitnvnoilptbzobxxsataxnxfqgdloehity"),
     base_url="https://api.siliconflow.cn/v1"
 )
 
@@ -23,7 +24,12 @@ def ask(message, history, deep_think):
 4. 最后给出总结答案
 5. 态度亲切，像老师辅导学生"""}]
     for item in history:
-        messages.append({"role": item["role"], "content": item["content"]})
+        if isinstance(item, dict):
+            messages.append({"role": item["role"], "content": item["content"]})
+        else:  # 元组格式 (user, bot)
+            messages.append({"role": "user", "content": item[0]})
+            if item[1]:
+                messages.append({"role": "assistant", "content": item[1]})
     messages.append({"role": "user", "content": message})
     response = client.chat.completions.create(
         model=model,
@@ -37,9 +43,11 @@ def ask(message, history, deep_think):
 def respond(message, chat_history, deep):
     if not message.strip():
         return "", chat_history
-    answer = ask(message, chat_history, deep)
-    chat_history.append({"role": "user", "content": message})
-    chat_history.append({"role": "assistant", "content": answer})
+    try:
+        answer = ask(message, chat_history, deep)
+    except Exception as e:
+        answer = f"⚠️ 请求失败：{str(e)}"
+    chat_history.append((message, answer))  # 旧版 Gradio 用元组格式
     return "", chat_history
 
 CLAUDE_CSS = """
@@ -219,14 +227,7 @@ with gr.Blocks(
     chatbot = gr.Chatbot(
         elem_id="chatbot",
         show_label=False,
-        type="messages",
-        latex_delimiters=[
-            {"left": "$$", "right": "$$", "display": True},
-            {"left": "$", "right": "$", "display": False}
-        ],
-        height=520,
-        show_copy_button=True,
-        bubble_full_width=False
+        height=520
     )
 
     with gr.Column(elem_classes="input-area"):
@@ -250,4 +251,5 @@ with gr.Blocks(
     send.click(respond, [msg, chatbot, deep_think], [msg, chatbot])
     msg.submit(respond, [msg, chatbot, deep_think], [msg, chatbot])
 
-demo.launch(server_name="0.0.0.0", server_port=7860, share=False, show_error=True)
+port = int(os.environ.get("PORT", 7860))
+demo.launch(server_name="0.0.0.0", server_port=port)
