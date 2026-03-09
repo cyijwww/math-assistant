@@ -14,7 +14,7 @@ def fix_latex(text):
     return text
 
 def ask(message, history, deep_think):
-    model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" if deep_think else "Qwen/Qwen2.5-7B-Instruct"
+    model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B" if deep_think else "Qwen/Qwen2.5-7B-Instruct"
     messages = [{"role": "system", "content": """你叫小明，是一位专业的大学数学辅导老师。
 回答要求：
 1. 所有数学公式必须用$$...$$包裹
@@ -34,52 +34,73 @@ def ask(message, history, deep_think):
     result = response.choices[0].message.content
     return fix_latex(result)
 
+def log_to_table(log):
+    return [[i+1, q] for i, q in enumerate(log)]
+
+def clear_history(log):
+    return [], []
+
 with gr.Blocks(
     theme=gr.themes.Soft(),
     title="小明数学助手",
     css="""
     body {margin: 0; padding: 0;}
     .gradio-container {max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
-    #chatbot {height: calc(100vh - 160px) !important; overflow-y: auto;}
-    #chatbot .message {max-width: 100% !important; width: 100% !important;}
+    #chatbot {height: calc(100vh - 200px) !important; overflow-y: auto;}
     #chatbot .bot {background: transparent !important; border: none !important; box-shadow: none !important; padding: 16px !important;}
     #chatbot .user {background: transparent !important; border: none !important; box-shadow: none !important;}
-    #input-row {position: fixed; bottom: 0; width: 100%; background: white; padding: 8px; border-top: 1px solid #eee;}
+    #input-area {position: fixed; bottom: 0; width: 100%; background: white; padding: 8px; border-top: 1px solid #eee;}
+    #history-box {height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 8px;}
     footer {display: none !important;}
     """
 ) as demo:
-    gr.Markdown("## 📐 小明 - 你的专属数学助手")
-    chatbot = gr.Chatbot(
-        elem_id="chatbot",
-        show_label=False,
-        latex_delimiters=[
-            {"left": "$$", "right": "$$", "display": True},
-            {"left": "$", "right": "$", "display": False}
-        ],
-        height=600
-    )
-    with gr.Row(elem_id="input-row"):
-        msg = gr.Textbox(
-            placeholder="向小明提问数学问题...",
-            show_label=False,
-            scale=5,
-            lines=2
-        )
-        send = gr.Button("发送 🚀", variant="primary", scale=1)
-    with gr.Row():
-        deep_think = gr.Checkbox(label="🧠 深度思考", value=False)
-        clear = gr.Button("🗑️ 清空对话")
+    with gr.Tabs():
+        with gr.Tab("💬 对话"):
+            gr.Markdown("## 📐 小明 - 你的专属数学助手")
+            chatbot = gr.Chatbot(
+                elem_id="chatbot",
+                show_label=False,
+                latex_delimiters=[
+                    {"left": "$$", "right": "$$", "display": True},
+                    {"left": "$", "right": "$", "display": False}
+                ],
+                height=500
+            )
+            with gr.Column(elem_id="input-area"):
+                deep_think = gr.Checkbox(label="🧠 深度思考", value=False)
+                with gr.Row():
+                    msg = gr.Textbox(
+                        placeholder="向小明提问数学问题...",
+                        show_label=False,
+                        scale=5,
+                        lines=1
+                    )
+                    send = gr.Button("发送", variant="primary", scale=1)
 
-    def respond(message, chat_history, deep):
+        with gr.Tab("📋 历史问题"):
+            gr.Markdown("## 📋 学生提问记录")
+            history_display = gr.Dataframe(
+                headers=["序号", "问题"],
+                datatype=["number", "str"],
+                label="",
+                elem_id="history-box",
+                interactive=False
+            )
+            clear_history_btn = gr.Button("🗑️ 清空记录", variant="stop")
+
+    question_log = gr.State([])
+
+    def respond(message, chat_history, deep, log):
         if not message.strip():
-            return "", chat_history
+            return "", chat_history, log, log_to_table(log)
         answer = ask(message, chat_history, deep)
         chat_history.append({"role": "user", "content": message})
         chat_history.append({"role": "assistant", "content": answer})
-        return "", chat_history
+        log.append(message)
+        return "", chat_history, log, log_to_table(log)
 
-    send.click(respond, [msg, chatbot, deep_think], [msg, chatbot])
-    msg.submit(respond, [msg, chatbot, deep_think], [msg, chatbot])
-    clear.click(lambda: [], None, chatbot)
+    send.click(respond, [msg, chatbot, deep_think, question_log], [msg, chatbot, question_log, history_display])
+    msg.submit(respond, [msg, chatbot, deep_think, question_log], [msg, chatbot, question_log, history_display])
+    clear_history_btn.click(clear_history, [question_log], [question_log, history_display])
 
 demo.launch(server_name="0.0.0.0", server_port=7860)
