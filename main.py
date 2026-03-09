@@ -34,16 +34,22 @@ def ask(message, history, deep_think):
     result = response.choices[0].message.content
     return fix_latex(result)
 
+def log_to_table(log):
+    return [[i+1, q] for i, q in enumerate(log)]
+
+def clear_history(log):
+    return [], []
+
 with gr.Blocks(
     theme=gr.themes.Soft(),
     title="小明数学助手",
     css="""
     body {margin: 0; padding: 0;}
     .gradio-container {max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
-    #chatbot {height: calc(100vh - 160px) !important; overflow-y: auto;}
+    #chatbot {height: calc(100vh - 200px) !important; overflow-y: auto;}
     #chatbot .bot {background: transparent !important; border: none !important; box-shadow: none !important; padding: 16px !important;}
     #chatbot .user {background: transparent !important; border: none !important; box-shadow: none !important;}
-    #input-row {position: fixed; bottom: 0; width: 100%; background: white; padding: 8px; border-top: 1px solid #eee;}
+    #input-area {position: fixed; bottom: 0; width: 100%; background: white; padding: 8px; border-top: 1px solid #eee;}
     #history-box {height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 8px;}
     footer {display: none !important;}
     """
@@ -60,14 +66,16 @@ with gr.Blocks(
                 ],
                 height=500
             )
-            with gr.Row(elem_id="input-row"):
+            with gr.Column(elem_id="input-area"):
                 deep_think = gr.Checkbox(label="🧠 深度思考", value=False)
-                msg = gr.Textbox(
-                    placeholder="向小明提问数学问题，按回车发送...",
-                    show_label=False,
-                    scale=6,
-                    lines=2
-                )
+                with gr.Row():
+                    msg = gr.Textbox(
+                        placeholder="向小明提问数学问题...",
+                        show_label=False,
+                        scale=5,
+                        lines=1
+                    )
+                    send = gr.Button("发送", variant="primary", scale=1)
 
         with gr.Tab("📋 历史问题"):
             gr.Markdown("## 📋 学生提问记录")
@@ -91,12 +99,7 @@ with gr.Blocks(
         log.append(message)
         return "", chat_history, log, log_to_table(log)
 
-    def log_to_table(log):
-        return [[i+1, q] for i, q in enumerate(log)]
-
-    def clear_history(log):
-        return [], []
-
+    send.click(respond, [msg, chatbot, deep_think, question_log], [msg, chatbot, question_log, history_display])
     msg.submit(respond, [msg, chatbot, deep_think, question_log], [msg, chatbot, question_log, history_display])
     clear_history_btn.click(clear_history, [question_log], [question_log, history_display])
 
