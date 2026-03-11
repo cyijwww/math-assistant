@@ -9,7 +9,6 @@ client = OpenAI(
     base_url="https://api.deepseek.com/v1"
 )
 
-
 def web_search(query):
     try:
         with DDGS() as ddgs:
@@ -24,21 +23,19 @@ def web_search(query):
     except Exception as e:
         return ""
 
-
 def fix_latex(text):
     text = text.replace("\\(", "").replace("\\)", "")
     text = text.replace("\\[", "").replace("\\]", "")
     text = text.replace("$$", "").replace("$", "")
     return text
 
-
 def ask(message, history, deep_think, use_search):
     model = "deepseek-reasoner" if deep_think else "deepseek-chat"
-
+    
     search_context = ""
     if use_search:
         search_context = web_search(message)
-
+    
     system_prompt = """你叫小明，是一位专业的大学数学辅导老师。
 回答要求：
 1. 解题步骤清晰，分步骤说明
@@ -63,7 +60,6 @@ def ask(message, history, deep_think, use_search):
     result = response.choices[0].message.content
     return fix_latex(result)
 
-
 def respond(message, chat_history, deep, search):
     if not message.strip():
         return "", chat_history
@@ -74,7 +70,6 @@ def respond(message, chat_history, deep, search):
     chat_history.append({"role": "user", "content": message})
     chat_history.append({"role": "assistant", "content": answer})
     return "", chat_history
-
 
 CLAUDE_CSS = """
 * { box-sizing: border-box; }
@@ -206,8 +201,11 @@ footer, .built-with { display: none !important; }
 """
 
 with gr.Blocks(
-        title="小明数学助手"
+    theme=gr.themes.Base(),
+    title="小明数学助手",
+    css=CLAUDE_CSS
 ) as demo:
+
     gr.HTML("""
     <div class="top-bar">
         <span style="font-size:16px;font-weight:600;color:#1a1a1a;letter-spacing:-0.3px;">📐 小明数学助手</span>
@@ -280,4 +278,4 @@ with gr.Blocks(
     msg.submit(respond, [msg, chatbot, deep_think, use_search], [msg, chatbot])
 
 port = int(os.environ.get("PORT", 7860))
-demo.launch(server_name="0.0.0.0", server_port=port, theme=gr.themes.Base(), css=CLAUDE_CSS)
+demo.launch(server_name="0.0.0.0", server_port=port)
