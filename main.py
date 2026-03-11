@@ -48,7 +48,11 @@ def ask(message, history, deep_think, use_search):
 
     messages = [{"role": "system", "content": system_prompt}]
     for item in history:
-        if isinstance(item, dict):
+        if isinstance(item, tuple):
+            messages.append({"role": "user", "content": item[0]})
+            if item[1]:
+                messages.append({"role": "assistant", "content": item[1]})
+        elif isinstance(item, dict):
             messages.append({"role": item["role"], "content": item["content"]})
     messages.append({"role": "user", "content": message})
     response = client.chat.completions.create(
@@ -67,8 +71,7 @@ def respond(message, chat_history, deep, search):
         answer = ask(message, chat_history, deep, search)
     except Exception as e:
         answer = f"⚠️ 请求失败：{str(e)}"
-    chat_history.append({"role": "user", "content": message})
-    chat_history.append({"role": "assistant", "content": answer})
+    chat_history.append((message, answer))
     return "", chat_history
 
 CLAUDE_CSS = """
