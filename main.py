@@ -81,34 +81,27 @@ body, .gradio-container {
     background: #f7f7f5 !important;
     font-family: Georgia, serif !important;
     max-width: 100% !important;
-    height: 100vh !important;
-    overflow: hidden !important;
 }
 
 footer, .built-with { display: none !important; }
 
-.gradio-container > .main {
-    height: 100vh !important;
-    display: flex !important;
-    flex-direction: column !important;
-    padding: 0 !important;
-}
-
 #chatbot {
     background: transparent !important;
     border: none !important;
-    flex: 1 !important;
-    overflow-y: auto !important;
-    padding: 12px 12px 8px 12px !important;
-    height: auto !important;
-    min-height: 0 !important;
+    width: 100% !important;
+    padding: 12px 12px 180px 12px !important;
+    min-height: 100vh !important;
 }
 
 .input-area {
-    background: #f7f7f5;
-    border-top: 1px solid #e5e5e0;
-    padding: 8px 12px 12px;
-    flex-shrink: 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: #f7f7f5 !important;
+    border-top: 1px solid #e5e5e0 !important;
+    padding: 10px 12px 40px !important;
+    z-index: 9999 !important;
 }
 
 .input-inner {
