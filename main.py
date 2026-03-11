@@ -75,64 +75,54 @@ def respond(message, chat_history, deep, search):
     return "", chat_history
 
 CLAUDE_CSS = """
-* { box-sizing: border-box; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body, .gradio-container {
     background: #f7f7f5 !important;
     font-family: Georgia, serif !important;
-    margin: 0 !important;
-    padding: 0 !important;
     max-width: 100% !important;
+    height: 100vh !important;
+    overflow: hidden !important;
 }
 
 footer, .built-with { display: none !important; }
 
-.top-bar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 52px;
-    background: #f7f7f5;
-    border-bottom: 1px solid #e5e5e0;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    z-index: 100;
+.gradio-container > .main {
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
 }
 
 #chatbot {
     background: transparent !important;
     border: none !important;
-    max-width: 760px !important;
-    margin: 0 auto !important;
-    padding: 60px 8px 200px 8px !important;
-    min-height: 100vh !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 12px 12px 8px 12px !important;
+    height: auto !important;
+    min-height: 0 !important;
 }
 
-#chatbot .wrap { padding: 0 !important; gap: 4px !important; }
-
 .input-area {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: linear-gradient(to top, #f7f7f5 80%, transparent);
-    padding: 8px 12px 16px;
-    z-index: 100;
+    background: #f7f7f5;
+    border-top: 1px solid #e5e5e0;
+    padding: 8px 12px 12px;
+    flex-shrink: 0 !important;
 }
 
 .input-inner {
-    max-width: 760px;
-    margin: 0 auto;
     background: #ffffff;
     border: 1.5px solid #ddddd8;
     border-radius: 18px;
     padding: 10px 12px 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
 }
 
 #deep-check {
-    max-width: 760px !important;
-    margin: 0 auto 6px !important;
     font-size: 12px !important;
     color: #888880 !important;
+    margin-bottom: 6px !important;
 }
 
 #deep-check label { color: #888880 !important; font-size: 12px !important; }
@@ -141,11 +131,11 @@ footer, .built-with { display: none !important; }
     background: transparent !important;
     border: none !important;
     outline: none !important;
-    font-size: 14px !important;
+    font-size: 15px !important;
     color: #1a1a1a !important;
     resize: none !important;
     font-family: inherit !important;
-    line-height: 1.55 !important;
+    line-height: 1.5 !important;
     padding: 0 !important;
     width: 100% !important;
 }
@@ -158,33 +148,21 @@ footer, .built-with { display: none !important; }
     background: #cc6a45 !important;
     border: none !important;
     border-radius: 10px !important;
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
     padding: 0 !important;
-    margin-top: 2px !important;
     cursor: pointer !important;
     color: white !important;
     font-size: 20px !important;
     line-height: 1 !important;
 }
 
-#send-btn:hover { background: #b55c39 !important; }
-
 .welcome-wrap {
     text-align: center;
-    padding: 80px 16px 30px;
+    padding: 30px 16px 20px;
     max-width: 580px;
     margin: 0 auto;
-}
-
-@media (max-width: 600px) {
-    .welcome-wrap { padding: 70px 12px 20px; }
-    .welcome-wrap h1 { font-size: 22px !important; }
-    .welcome-wrap p { font-size: 13px !important; }
-    .welcome-wrap span { font-size: 12px !important; padding: 5px 10px !important; }
-    #chatbot { padding: 60px 4px 180px 4px !important; }
-    .input-area { padding: 6px 8px 12px; }
 }
 """
 
@@ -195,12 +173,8 @@ with gr.Blocks(
 ) as demo:
 
     gr.HTML("""
-    <div class="top-bar">
-        <span style="font-size:16px;font-weight:600;color:#1a1a1a;letter-spacing:-0.3px;">📐 小明数学助手</span>
-        <span style="margin-left:10px;font-size:11px;color:#888;background:#eeeae4;
-                     padding:2px 9px;border-radius:20px;font-family:monospace;">
-            Qwen · DeepSeek-R1
-        </span>
+    <div style="text-align:center;padding:10px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;">
+        <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📐 小明数学助手</span>
     </div>
     """)
 
