@@ -58,7 +58,7 @@ def ask(message, history, deep_think, use_search):
     response = client.chat.completions.create(
         model=model,
         messages=messages,
-        max_tokens=1000,
+        max_tokens=4000,
         temperature=0.3
     )
     result = response.choices[0].message.content
