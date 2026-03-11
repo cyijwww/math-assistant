@@ -2,34 +2,57 @@ import re
 import os
 import gradio as gr
 from openai import OpenAI
+from duckduckgo_search import DDGS
 
 client = OpenAI(
-    api_key=os.environ.get("SILICONFLOW_API_KEY", "sk-wdbozclgazsabsitnvnoilptbzobxxsataxnxfqgdloehity"),
-    base_url="https://api.siliconflow.cn/v1"
+    api_key=os.environ.get("DEEPSEEK_API_KEY", "sk-3b1488b14e6349a2b3d366c23814a053"),
+    base_url="https://api.deepseek.com/v1"
 )
 
+
+def web_search(query):
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=3))
+        if not results:
+            return ""
+        search_text = "\n\n".join([
+            f"来源：{r['title']}\n内容：{r['body']}"
+            for r in results
+        ])
+        return f"\n\n【网络搜索结果】\n{search_text}\n【搜索结束】\n"
+    except Exception as e:
+        return ""
+
+
 def fix_latex(text):
-    text = text.replace("\\(", "$").replace("\\)", "$")
-    text = text.replace("\\[", "$$").replace("\\]", "$$")
-    text = re.sub(r'\$\s*\n\s*\$', '$$', text)
+    text = text.replace("\\(", "").replace("\\)", "")
+    text = text.replace("\\[", "").replace("\\]", "")
+    text = text.replace("$$", "").replace("$", "")
     return text
 
-def ask(message, history, deep_think):
-    model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B" if deep_think else "Qwen/Qwen2.5-7B-Instruct"
-    messages = [{"role": "system", "content": """你叫小明，是一位专业的大学数学辅导老师。
+
+def ask(message, history, deep_think, use_search):
+    model = "deepseek-reasoner" if deep_think else "deepseek-chat"
+
+    search_context = ""
+    if use_search:
+        search_context = web_search(message)
+
+    system_prompt = """你叫小明，是一位专业的大学数学辅导老师。
 回答要求：
-1. 所有数学公式必须用$$...$$包裹
-2. 解题步骤清晰，分步骤说明
-3. 先给出思路，再一步一步计算
-4. 最后给出总结答案
-5. 态度亲切，像老师辅导学生"""}]
+1. 解题步骤清晰，分步骤说明
+2. 先给出思路，再一步一步计算
+3. 最后给出总结答案
+4. 态度亲切，像老师辅导学生"""
+
+    if search_context:
+        system_prompt += f"\n\n你可以参考以下网络搜索结果来补充回答：{search_context}"
+
+    messages = [{"role": "system", "content": system_prompt}]
     for item in history:
         if isinstance(item, dict):
             messages.append({"role": item["role"], "content": item["content"]})
-        else:  # 元组格式 (user, bot)
-            messages.append({"role": "user", "content": item[0]})
-            if item[1]:
-                messages.append({"role": "assistant", "content": item[1]})
     messages.append({"role": "user", "content": message})
     response = client.chat.completions.create(
         model=model,
@@ -40,15 +63,18 @@ def ask(message, history, deep_think):
     result = response.choices[0].message.content
     return fix_latex(result)
 
-def respond(message, chat_history, deep):
+
+def respond(message, chat_history, deep, search):
     if not message.strip():
         return "", chat_history
     try:
-        answer = ask(message, chat_history, deep)
+        answer = ask(message, chat_history, deep, search)
     except Exception as e:
         answer = f"⚠️ 请求失败：{str(e)}"
-    chat_history.append((message, answer))  # 旧版 Gradio 用元组格式
+    chat_history.append({"role": "user", "content": message})
+    chat_history.append({"role": "assistant", "content": answer})
     return "", chat_history
+
 
 CLAUDE_CSS = """
 * { box-sizing: border-box; }
@@ -180,11 +206,8 @@ footer, .built-with { display: none !important; }
 """
 
 with gr.Blocks(
-    theme=gr.themes.Base(),
-    title="小明数学助手",
-    css=CLAUDE_CSS
+        title="小明数学助手"
 ) as demo:
-
     gr.HTML("""
     <div class="top-bar">
         <span style="font-size:16px;font-weight:600;color:#1a1a1a;letter-spacing:-0.3px;">📐 小明数学助手</span>
@@ -236,6 +259,11 @@ with gr.Blocks(
             value=False,
             elem_id="deep-check"
         )
+        use_search = gr.Checkbox(
+            label="🔍 智能搜索（联网搜索相关资料）",
+            value=False,
+            elem_id="deep-check"
+        )
         with gr.Column(elem_classes="input-inner"):
             with gr.Row():
                 msg = gr.Textbox(
@@ -248,8 +276,8 @@ with gr.Blocks(
                 )
                 send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
 
-    send.click(respond, [msg, chatbot, deep_think], [msg, chatbot])
-    msg.submit(respond, [msg, chatbot, deep_think], [msg, chatbot])
+    send.click(respond, [msg, chatbot, deep_think, use_search], [msg, chatbot])
+    msg.submit(respond, [msg, chatbot, deep_think, use_search], [msg, chatbot])
 
 port = int(os.environ.get("PORT", 7860))
-demo.launch(server_name="0.0.0.0", server_port=port)
+demo.launch(server_name="0.0.0.0", server_port=port, theme=gr.themes.Base(), css=CLAUDE_CSS)
