@@ -1,50 +1,31 @@
 import re
 import os
+import requests
 import gradio as gr
 from openai import OpenAI
 from duckduckgo_search import DDGS
-from authlib.integrations.flask_client import OAuth
-from flask import Flask, redirect, session, url_for, request
-import threading
 
 # Authing 配置
+AUTHING_DOMAIN = "https://pig-math.authing.cn"
 AUTHING_APP_ID = os.environ.get("AUTHING_APP_ID", "69b2c0fe301a31829372d43f")
 AUTHING_APP_SECRET = os.environ.get("AUTHING_APP_SECRET", "f336dab59369aef6b8a318078bb3144c")
-AUTHING_DOMAIN = "https://pig-math.authing.cn"
-RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://math-assistant-production.up.railway.app")
 
-# Flask 应用处理登录
-flask_app = Flask(__name__)
-flask_app.secret_key = os.urandom(24)
-
-oauth = OAuth(flask_app)
-authing = oauth.register(
-    name="authing",
-    client_id=AUTHING_APP_ID,
-    client_secret=AUTHING_APP_SECRET,
-    server_metadata_url=f"{AUTHING_DOMAIN}/oidc/.well-known/openid-configuration",
-    client_kwargs={"scope": "openid profile email"},
-)
-
-@flask_app.route("/login")
-def login():
-    redirect_uri = f"{RAILWAY_URL}/callback"
-    return authing.authorize_redirect(redirect_uri)
-
-@flask_app.route("/callback")
-def callback():
-    token = authing.authorize_access_token()
-    user = token.get("userinfo")
-    session["user"] = user
-    return redirect("/")
-
-@flask_app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(f"{AUTHING_DOMAIN}/oidc/session/end?redirect_uri={RAILWAY_URL}")
-
-def get_current_user():
-    return session.get("user")
+def check_login(email, password):
+    """通过 Authing API 验证邮箱和密码"""
+    try:
+        resp = requests.post(
+            f"{AUTHING_DOMAIN}/api/v2/login/account",
+            json={
+                "account": email,
+                "password": password,
+                "appId": AUTHING_APP_ID,
+            },
+            timeout=10
+        )
+        data = resp.json()
+        return data.get("code") == 200
+    except Exception:
+        return False
 
 client = OpenAI(
     api_key=os.environ.get("DEEPSEEK_API_KEY", "sk-3b1488b14e6349a2b3d366c23814a053"),
@@ -295,10 +276,9 @@ with gr.Blocks(
     msg.submit(respond, [msg, chatbot, deep_think, use_search, username], [msg, chatbot])
 
 port = int(os.environ.get("PORT", 7860))
-
-# 挂载 Gradio 到 Flask
-from gradio.routes import mount_gradio_app
-flask_app = mount_gradio_app(flask_app, demo, path="/")
-
-if __name__ == "__main__":
-    flask_app.run(host="0.0.0.0", port=port)
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=port,
+    auth=check_login,
+    auth_message="请用在 pig 注册的邮箱和密码登录"
+)
