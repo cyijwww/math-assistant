@@ -29,19 +29,32 @@ def fix_latex(text):
     text = text.replace("$$", "").replace("$", "")
     return text
 
-def ask(message, history, deep_think, use_search):
+def ask(message, history, deep_think, use_search, username):
     model = "deepseek-reasoner" if deep_think else "deepseek-chat"
-    
+
     search_context = ""
     if use_search:
         search_context = web_search(message)
-    
-    system_prompt = """你叫小明，是一位专业的大学数学辅导老师。
+
+    history_len = len(history)
+    if history_len == 0:
+        level_hint = "这是该同学第一次提问，请友好介绍自己。"
+    elif history_len < 5:
+        level_hint = "该同学刚开始学习，请耐心详细解释。"
+    else:
+        level_hint = "该同学已有一定基础，可以适当加深难度。"
+
+    name_str = f"同学的名字是【{username}】，请在回答时称呼他/她的名字。" if username.strip() else ""
+
+    system_prompt = f"""你叫pig，是一位专业的大学数学辅导老师。
+{name_str}
+{level_hint}
 回答要求：
 1. 解题步骤清晰，分步骤说明
 2. 先给出思路，再一步一步计算
 3. 最后给出总结答案
-4. 态度亲切，像老师辅导学生"""
+4. 态度亲切，像老师辅导学生
+5. 根据同学的提问水平调整回答难度"""
 
     if search_context:
         system_prompt += f"\n\n你可以参考以下网络搜索结果来补充回答：{search_context}"
@@ -64,11 +77,11 @@ def ask(message, history, deep_think, use_search):
     result = response.choices[0].message.content
     return fix_latex(result)
 
-def respond(message, chat_history, deep, search):
+def respond(message, chat_history, deep, search, username):
     if not message.strip():
         return "", chat_history
     try:
-        answer = ask(message, chat_history, deep, search)
+        answer = ask(message, chat_history, deep, search, username)
     except Exception as e:
         answer = f"⚠️ 请求失败：{str(e)}"
     chat_history.append((message, answer))
@@ -161,13 +174,13 @@ footer, .built-with { display: none !important; }
 
 with gr.Blocks(
     theme=gr.themes.Base(),
-    title="小明数学助手",
+    title="pig",
     css=CLAUDE_CSS
 ) as demo:
 
     gr.HTML("""
     <div style="text-align:center;padding:10px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;">
-        <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📐 小明数学助手</span>
+        <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📐 pig</span>
     </div>
     """)
 
@@ -177,7 +190,7 @@ with gr.Blocks(
                     display:flex;align-items:center;justify-content:center;
                     font-size:26px;margin:0 auto 20px;">📐</div>
         <h1 style="font-size:26px;font-weight:600;color:#1a1a1a;margin:0 0 10px;letter-spacing:-0.5px;">
-            你好，我是小明
+            你好，我是pig
         </h1>
         <p style="font-size:15px;color:#777770;margin:0;line-height:1.7;">
             你的专属大学数学辅导老师<br>
@@ -207,6 +220,13 @@ with gr.Blocks(
     )
 
     with gr.Column(elem_classes="input-area"):
+        username = gr.Textbox(
+            placeholder="请输入你的名字（可选）",
+            show_label=False,
+            lines=1,
+            max_lines=1,
+            elem_id="msg-input"
+        )
         deep_think = gr.Checkbox(
             label="🧠 深度思考（使用 DeepSeek-R1，更慢更精准）",
             value=False,
@@ -220,7 +240,7 @@ with gr.Blocks(
         with gr.Column(elem_classes="input-inner"):
             with gr.Row():
                 msg = gr.Textbox(
-                    placeholder="向小明提问任何数学问题...",
+                    placeholder="向pig提问任何数学问题...",
                     show_label=False,
                     scale=5,
                     lines=1,
@@ -229,8 +249,8 @@ with gr.Blocks(
                 )
                 send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
 
-    send.click(respond, [msg, chatbot, deep_think, use_search], [msg, chatbot])
-    msg.submit(respond, [msg, chatbot, deep_think, use_search], [msg, chatbot])
+    send.click(respond, [msg, chatbot, deep_think, use_search, username], [msg, chatbot])
+    msg.submit(respond, [msg, chatbot, deep_think, use_search, username], [msg, chatbot])
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
