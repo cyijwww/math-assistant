@@ -237,29 +237,41 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     with gr.Column(visible=False) as chat_page:
         gr.HTML("""
-        <div style="text-align:center;padding:10px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;">
+        <div style="text-align:center;padding:10px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;display:flex;align-items:center;justify-content:center;gap:12px;">
             <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📐 pig</span>
         </div>
         """)
-        gr.HTML("""
-        <div class="welcome-wrap">
-            <div style="width:56px;height:56px;background:#cc6a45;border-radius:16px;
-                        display:flex;align-items:center;justify-content:center;
-                        font-size:26px;margin:0 auto 20px;">📐</div>
-            <h1 style="font-size:26px;font-weight:600;color:#1a1a1a;margin:0 0 10px;">你好，我是pig</h1>
-            <p style="font-size:15px;color:#777770;margin:0;line-height:1.7;">
-                你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
-            </p >
-        </div>
-        """)
-        chatbot = gr.Chatbot(elem_id="chatbot", show_label=False, height=520)
-        with gr.Column(elem_classes="input-area"):
-            deep_think = gr.Checkbox(label="🧠 深度思考（使用 DeepSeek-R1，更慢更精准）", value=False, elem_id="deep-check")
-            use_search = gr.Checkbox(label="🔍 智能搜索（联网搜索相关资料）", value=False, elem_id="deep-check")
-            with gr.Column(elem_classes="input-inner"):
+
+        # 聊天视图
+        with gr.Column(visible=True) as chat_view:
+            gr.HTML("""
+            <div class="welcome-wrap">
+                <div style="width:56px;height:56px;background:#cc6a45;border-radius:16px;
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:26px;margin:0 auto 20px;">📐</div>
+                <h1 style="font-size:26px;font-weight:600;color:#1a1a1a;margin:0 0 10px;">你好，我是pig</h1>
+                <p style="font-size:15px;color:#777770;margin:0;line-height:1.7;">
+                    你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
+                </p >
+            </div>
+            """)
+            chatbot = gr.Chatbot(elem_id="chatbot", show_label=False, height=520)
+            with gr.Column(elem_classes="input-area"):
                 with gr.Row():
-                    msg = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, scale=5, lines=1, max_lines=8, elem_id="msg-input")
-                    send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
+                    history_btn = gr.Button("📋 历史记录", variant="secondary", scale=1, size="sm")
+                    gr.HTML("<div style='flex:3'></div>")
+                deep_think = gr.Checkbox(label="🧠 深度思考（使用 DeepSeek-R1，更慢更精准）", value=False, elem_id="deep-check")
+                use_search = gr.Checkbox(label="🔍 智能搜索（联网搜索相关资料）", value=False, elem_id="deep-check")
+                with gr.Column(elem_classes="input-inner"):
+                    with gr.Row():
+                        msg = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, scale=5, lines=1, max_lines=8, elem_id="msg-input")
+                        send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
+
+        # 历史记录视图
+        with gr.Column(visible=False) as history_view:
+            back_btn = gr.Button("← 返回聊天", variant="secondary")
+            gr.HTML("<h3 style='padding:16px;color:#1a1a1a;'>📋 我的历史提问</h3>")
+            history_display = gr.Chatbot(show_label=False, height=600)
 
     def handle_login(email, password):
         nickname, error = do_login(email, password)
@@ -278,11 +290,20 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         else:
             return msg_html, gr.update()
 
+    def show_history(email):
+        history = load_history(email) if email else []
+        return gr.update(visible=False), gr.update(visible=True), history
+
+    def hide_history():
+        return gr.update(visible=True), gr.update(visible=False)
+
     login_btn.click(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot])
     login_email.submit(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot])
     reg_btn.click(handle_register, [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
     send.click(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
+    history_btn.click(show_history, [logged_in_user], [chat_view, history_view, history_display])
+    back_btn.click(hide_history, [], [chat_view, history_view])
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
