@@ -25,7 +25,8 @@ def get_conn():
 def init_db():
     try:
         conn = get_conn()
-        conn.cursor().execute("""
+        cur = conn.cursor()
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
@@ -33,10 +34,46 @@ def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id SERIAL PRIMARY KEY,
+                email TEXT NOT NULL,
+                question TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
         conn.commit()
         conn.close()
     except Exception as e:
         print(f"DB init error: {e}")
+
+def save_conversation(email, question, answer):
+    try:
+        conn = get_conn()
+        conn.cursor().execute(
+            "INSERT INTO conversations (email, question, answer) VALUES (%s, %s, %s)",
+            (email, question, answer)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Save conversation error: {e}")
+
+def load_history(email):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT question, answer FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50",
+            (email,)
+        )
+        rows = cur.fetchall()
+        conn.close()
+        return [(q, a) for q, a in reversed(rows)]
+    except Exception as e:
+        print(f"Load history error: {e}")
+        return []
 
 def hash_pw(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -138,11 +175,13 @@ def ask(message, history, deep_think, use_search, username):
     response = client.chat.completions.create(model=model, messages=messages, max_tokens=4000, temperature=0.3)
     return fix_latex(response.choices[0].message.content)
 
-def respond(message, chat_history, deep, search, username):
+def respond(message, chat_history, deep, search, current_user):
     if not message.strip():
         return "", chat_history
     try:
-        answer = ask(message, chat_history, deep, search, username)
+        answer = ask(message, chat_history, deep, search, "")
+        if current_user:
+            save_conversation(current_user, message, answer)
     except Exception as e:
         answer = f"⚠️ 请求失败：{str(e)}"
     chat_history.append((message, answer))
@@ -181,18 +220,20 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
             <p style="color:#888;font-size:13px;margin-top:4px;">你的专属数学辅导老师</p >
         </div>
         """)
-        with gr.Tabs():
+        with gr.Tabs() as tabs:
             with gr.Tab("登录"):
                 login_email = gr.Textbox(placeholder="邮箱", show_label=False)
                 login_pass = gr.Textbox(placeholder="密码", show_label=False, type="password")
                 login_btn = gr.Button("登录", elem_id="auth-submit", variant="primary")
                 login_msg = gr.HTML(elem_id="auth-msg")
+
             with gr.Tab("注册"):
                 reg_email = gr.Textbox(placeholder="邮箱（QQ/163/Gmail均可）", show_label=False)
                 reg_pass = gr.Textbox(placeholder="密码（至少6位）", show_label=False, type="password")
                 reg_confirm = gr.Textbox(placeholder="确认密码", show_label=False, type="password")
                 reg_btn = gr.Button("注册", elem_id="auth-submit", variant="primary")
                 reg_msg = gr.HTML(elem_id="auth-msg")
+
 
     with gr.Column(visible=False) as chat_page:
         gr.HTML("""
@@ -213,7 +254,6 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         """)
         chatbot = gr.Chatbot(elem_id="chatbot", show_label=False, height=520)
         with gr.Column(elem_classes="input-area"):
-            username = gr.Textbox(placeholder="请输入你的名字（可选）", show_label=False, lines=1, max_lines=1, elem_id="msg-input")
             deep_think = gr.Checkbox(label="🧠 深度思考（使用 DeepSeek-R1，更慢更精准）", value=False, elem_id="deep-check")
             use_search = gr.Checkbox(label="🔍 智能搜索（联网搜索相关资料）", value=False, elem_id="deep-check")
             with gr.Column(elem_classes="input-inner"):
@@ -224,20 +264,25 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     def handle_login(email, password):
         nickname, error = do_login(email, password)
         if nickname:
-            return gr.update(visible=False), gr.update(visible=True), nickname, ""
+            history = load_history(email.lower().strip())
+            return gr.update(visible=False), gr.update(visible=True), email.lower().strip(), "", history
         else:
-            return gr.update(visible=True), gr.update(visible=False), None, f'<p style="color:red">{error}</p >'
+            return gr.update(visible=True), gr.update(visible=False), None, f'<p style="color:red">{error}</p >', []
 
     def handle_register(email, password, confirm):
         result = do_register(email, password, confirm)
         color = "green" if "✅" in result else "red"
-        return f'<p style="color:{color}">{result}</p >'
+        msg_html = f'<p style="color:{color}">{result}</p >'
+        if "✅" in result:
+            return msg_html, gr.update(selected=0)
+        else:
+            return msg_html, gr.update()
 
-    login_btn.click(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg])
-    login_email.submit(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg])
-    reg_btn.click(handle_register, [reg_email, reg_pass, reg_confirm], reg_msg)
-    send.click(respond, [msg, chatbot, deep_think, use_search, username], [msg, chatbot])
-    msg.submit(respond, [msg, chatbot, deep_think, use_search, username], [msg, chatbot])
+    login_btn.click(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot])
+    login_email.submit(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot])
+    reg_btn.click(handle_register, [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
+    send.click(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
+    msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
