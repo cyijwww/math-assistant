@@ -11,7 +11,16 @@ from psycopg2.extras import RealDictCursor
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 def get_conn():
-    return psycopg2.connect(DATABASE_URL, sslmode="require")
+    import urllib.parse
+    r = urllib.parse.urlparse(DATABASE_URL)
+    return psycopg2.connect(
+        host=r.hostname,
+        port=r.port or 6543,
+        database=r.path.lstrip("/"),
+        user=r.username,
+        password=r.password,
+        sslmode="require"
+    )
 
 def init_db():
     try:
