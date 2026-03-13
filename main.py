@@ -1,69 +1,36 @@
 import re
 import os
-import requests
+import hashlib
 import gradio as gr
 from openai import OpenAI
 from duckduckgo_search import DDGS
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
-# ── Authing 配置 ──
-AUTHING_DOMAIN = "https://pig-math.authing.cn"
-AUTHING_APP_ID = os.environ.get("AUTHING_APP_ID", "69b2c0fe301a31829372d43f")
-AUTHING_APP_SECRET = os.environ.get("AUTHING_APP_SECRET", "f336dab59369aef6b8a318078bb3144c")
-AUTHING_USERPOOL_ID = os.environ.get("AUTHING_USERPOOL_ID", "")  # 用户池ID，在Authing设置里找
+# ── 数据库 ──
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-def authing_register(email, password):
+def get_conn():
+    return psycopg2.connect(DATABASE_URL, sslmode="require")
+
+def init_db():
     try:
-        resp = requests.post(
-            f"{AUTHING_DOMAIN}/api/v2/register/email-password",
-            json={
-                "email": email,
-                "password": password,
-                "forceLogin": False,
-                "generateToken": False,
-            },
-            headers={
-                "x-authing-app-id": AUTHING_APP_ID,
-                "Content-Type": "application/json",
-            },
-            timeout=15
-        )
-        data = resp.json()
-        code = data.get("code", 0)
-        if code == 200:
-            return True, "✅ 注册成功！请切换到登录标签登录"
-        elif code == 2026:
-            return False, "❌ 该邮箱已注册，请直接登录"
-        else:
-            return False, f"❌ {data.get('message', '注册失败，请稍后再试')}"
+        conn = get_conn()
+        conn.cursor().execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        conn.close()
     except Exception as e:
-        return False, f"❌ 网络错误：{str(e)}"
+        print(f"DB init error: {e}")
 
-def authing_login(email, password):
-    try:
-        resp = requests.post(
-            f"{AUTHING_DOMAIN}/api/v2/login/email-password",
-            json={
-                "email": email,
-                "password": password,
-            },
-            headers={
-                "x-authing-app-id": AUTHING_APP_ID,
-                "Content-Type": "application/json",
-            },
-            timeout=15
-        )
-        data = resp.json()
-        code = data.get("code", 0)
-        if code == 200:
-            user_data = data.get("data", {})
-            nickname = user_data.get("nickname") or user_data.get("name") or email.split("@")[0]
-            return nickname, None
-        elif code == 2333:
-            return None, "❌ 邮箱或密码错误"
-        else:
-            return None, f"❌ {data.get('message', '登录失败')}"
-    except Exception as e:
-        return None, f"❌ 网络错误：{str(e)}"
+def hash_pw(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def do_register(email, password, confirm):
     if not email or not password:
@@ -74,15 +41,39 @@ def do_register(email, password, confirm):
         return "❌ 两次密码不一致"
     if len(password) < 6:
         return "❌ 密码至少6位"
-    _, msg = authing_register(email.strip(), password)
-    return msg
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO users (email, password_hash) VALUES (%s, %s)",
+                    (email.lower().strip(), hash_pw(password)))
+        conn.commit()
+        conn.close()
+        return "✅ 注册成功！请切换到登录标签登录"
+    except psycopg2.errors.UniqueViolation:
+        return "❌ 该邮箱已注册，请直接登录"
+    except Exception as e:
+        return f"❌ 错误：{str(e)}"
 
 def do_login(email, password):
     if not email or not password:
         return None, "❌ 请输入邮箱和密码"
-    return authing_login(email.strip(), password)
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT email FROM users WHERE email=%s AND password_hash=%s",
+                    (email.lower().strip(), hash_pw(password)))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return email.split("@")[0], None
+        else:
+            return None, "❌ 邮箱或密码错误"
+    except Exception as e:
+        return None, f"❌ 错误：{str(e)}"
 
-# ── AI 配置 ──
+init_db()
+
+# ── AI ──
 client = OpenAI(
     api_key=os.environ.get("DEEPSEEK_API_KEY", "sk-3b1488b14e6349a2b3d366c23814a053"),
     base_url="https://api.deepseek.com/v1"
