@@ -306,9 +306,17 @@ var _sbObs = new MutationObserver(function(muts) {
         });
     });
 });
-document.addEventListener('DOMContentLoaded', function() {
-    var container = document.body;
-    _sbObs.observe(container, { childList: true, subtree: true });
+_sbObs.observe(document.body, { childList: true, subtree: true });
+</script>
+<div id="pig-topbar" style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;gap:10px;position:sticky;top:0;z-index:100;">
+  <button id="pig-menu-btn" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 6px;line-height:1;">☰</button>
+  <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
+</div>
+<script>
+document.getElementById('pig-menu-btn').addEventListener('click', function() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebar-overlay').classList.add('open');
+    renderSidebar();
 });
 </script>
 """
@@ -343,11 +351,6 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     with gr.Column(visible=False) as chat_page:
         gr.HTML(SIDEBAR_HTML)
-        gr.HTML("""
-        <div style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;gap:10px;">
-          <button onclick="window.openSidebar&&window.openSidebar()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:0 4px;">☰</button>
-          <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
-        </div>""")
 
         logout_btn      = gr.Button("退出登录", variant="secondary", size="sm")
         # 隐藏触发按钮（侧边栏JS调用）
