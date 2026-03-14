@@ -241,11 +241,11 @@ footer,.built-with { display:none !important; }
 """
 
 SIDEBAR_HTML = """
-<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div id="sidebar-overlay" onclick="window.closeSidebar&&window.closeSidebar()"></div>
 <div id="sidebar">
   <div id="sidebar-header">
     <span id="sidebar-title">📋 历史提问</span>
-    <button id="sidebar-close" onclick="closeSidebar()">✕</button>
+    <button id="sidebar-close" onclick="window.closeSidebar&&window.closeSidebar()">✕</button>
   </div>
   <div id="sidebar-actions">
     <button id="sidebar-del-btn" onclick="deleteLastItem()">🗑 删除最近一条</button>
@@ -256,12 +256,12 @@ SIDEBAR_HTML = """
 </div>
 <script>
 window._pigHistoryData = [];
-function openSidebar() {
+window.openSidebar = function() {
     renderSidebar();
     document.getElementById('sidebar').classList.add('open');
     document.getElementById('sidebar-overlay').classList.add('open');
 }
-function closeSidebar() {
+window.closeSidebar = function() {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebar-overlay').classList.remove('open');
 }
@@ -345,7 +345,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         gr.HTML(SIDEBAR_HTML)
         gr.HTML("""
         <div style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;gap:10px;">
-          <button onclick="openSidebar()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:0 4px;">☰</button>
+          <button onclick="window.openSidebar&&window.openSidebar()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:0 4px;">☰</button>
           <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
         </div>""")
 
@@ -394,15 +394,17 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         return msg_html, (gr.update(selected=0) if "✅" in result else gr.update())
 
     def handle_logout():
-        return gr.update(visible=True), gr.update(visible=False), None, None, [], ""
+        clear_js = make_sidebar_js(None)
+        return gr.update(visible=True), gr.update(visible=False), None, None, [], clear_js
 
     def do_delete_last(email):
         if email: delete_last_conversation(email)
-        return make_sidebar_js(email)
+        new_chat = load_history(email) if email else []
+        return new_chat, make_sidebar_js(email)
 
     def do_clear_all(email):
         if email: clear_all_history(email)
-        return make_sidebar_js(email)
+        return [], make_sidebar_js(email)
 
     login_outputs = [auth_page, chat_page, logged_in_user, logged_in_nick,
                      login_msg, chatbot, sidebar_updater]
@@ -416,8 +418,8 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick],
                [msg, chatbot, sidebar_updater])
 
-    delete_last_btn.click(do_delete_last, [logged_in_user], [sidebar_updater])
-    clear_all_btn.click(do_clear_all,     [logged_in_user], [sidebar_updater])
+    delete_last_btn.click(do_delete_last, [logged_in_user], [chatbot, sidebar_updater])
+    clear_all_btn.click(do_clear_all,     [logged_in_user], [chatbot, sidebar_updater])
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
