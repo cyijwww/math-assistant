@@ -95,6 +95,55 @@ def load_history(email):
         print(f"Load history error: {e}")
         return []
 
+def load_history_with_meta(email):
+    """返回带时间和id的历史，用于历史记录页面显示"""
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, question, answer, created_at FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50",
+            (email,)
+        )
+        rows = cur.fetchall()
+        conn.close()
+        result = []
+        for rid, question, answer, created_at in rows:
+            time_str = created_at.strftime("%Y-%m-%d %H:%M") if created_at else ""
+            result.append((f"[{time_str}] {question}", answer))
+        return result
+    except Exception as e:
+        print(f"Load history meta error: {e}")
+        return []
+
+def delete_last_conversation(email):
+    """删除最近一条记录"""
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM conversations WHERE id = (SELECT id FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 1)",
+            (email,)
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Delete error: {e}")
+        return False
+
+def clear_all_history(email):
+    """清空该用户所有历史"""
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM conversations WHERE email=%s", (email,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Clear history error: {e}")
+        return False
+
 def hash_pw(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -246,6 +295,23 @@ footer, .built-with { display: none !important; }
 #msg-input { border: none !important; flex: 1 !important; }
 #send-btn { background: #cc6a45 !important; border: none !important; border-radius: 10px !important; width: 36px !important; height: 36px !important; min-width: 36px !important; padding: 0 !important; cursor: pointer !important; color: white !important; font-size: 20px !important; line-height: 1 !important; }
 .welcome-wrap { text-align: center; padding: 30px 16px 20px; max-width: 580px; margin: 0 auto; }
+/* 侧边栏 */
+#sidebar-overlay { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35); z-index:1000; }
+#sidebar-overlay.open { display:block; }
+#sidebar { position:fixed; top:0; left:0; width:300px; max-width:85vw; height:100vh; background:#fff; z-index:1001; transform:translateX(-100%); transition:transform 0.3s ease; display:flex; flex-direction:column; box-shadow:4px 0 20px rgba(0,0,0,0.15); }
+#sidebar.open { transform:translateX(0); }
+#sidebar-header { padding:16px; border-bottom:1px solid #e5e5e0; display:flex; align-items:center; justify-content:space-between; }
+#sidebar-title { font-size:15px; font-weight:600; color:#1a1a1a; }
+#sidebar-close { background:none; border:none; font-size:20px; cursor:pointer; color:#888; padding:4px 8px; }
+#sidebar-actions { padding:10px 12px; display:flex; gap:8px; border-bottom:1px solid #e5e5e0; }
+#sidebar-del-btn, #sidebar-clear-btn { flex:1; padding:7px; border-radius:8px; border:1px solid #ddd; font-size:12px; cursor:pointer; background:#fff; }
+#sidebar-clear-btn { border-color:#e88; color:#c44; }
+#sidebar-list { flex:1; overflow-y:auto; padding:8px 0; }
+.sidebar-item { padding:12px 16px; border-bottom:1px solid #f0f0ee; cursor:pointer; }
+.sidebar-item:hover { background:#f7f7f5; }
+.sidebar-item-time { font-size:11px; color:#aaa; margin-bottom:4px; }
+.sidebar-item-q { font-size:13px; color:#1a1a1a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#sidebar-status { padding:8px 16px; font-size:12px; color:#cc6a45; min-height:24px; }
 """
 
 with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
@@ -277,13 +343,78 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
 
     with gr.Column(visible=False) as chat_page:
+        # 左滑侧边栏（纯HTML+JS实现）
+        sidebar_html = gr.HTML("""
+        <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <span id="sidebar-title">📋 历史提问</span>
+                <button id="sidebar-close" onclick="closeSidebar()">✕</button>
+            </div>
+            <div id="sidebar-actions">
+                <button id="sidebar-del-btn" onclick="deleteLastItem()">🗑 删除最近一条</button>
+                <button id="sidebar-clear-btn" onclick="clearAllItems()">⚠️ 清空全部</button>
+            </div>
+            <div id="sidebar-status"></div>
+            <div id="sidebar-list"></div>
+        </div>
+        <script>
+        window._pigHistoryData = [];
+        function openSidebar(items) {
+            window._pigHistoryData = items || [];
+            renderSidebar();
+            document.getElementById('sidebar').classList.add('open');
+            document.getElementById('sidebar-overlay').classList.add('open');
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-overlay').classList.remove('open');
+        }
+        function renderSidebar() {
+            var list = document.getElementById('sidebar-list');
+            var items = window._pigHistoryData;
+            if (!items || items.length === 0) {
+                list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px;">暂无历史记录</div>';
+                return;
+            }
+            list.innerHTML = items.map(function(item, i) {
+                var parts = item[0].match(/^\x5B(.+?)\x5D (.+)$/);
+                var time = parts ? parts[1] : '';
+                var q = parts ? parts[2] : item[0];
+                return '<div class="sidebar-item"><div class="sidebar-item-time">' + time + '</div><div class="sidebar-item-q">' + q + '</div></div>';
+            }).join('');
+        }
+        function setStatus(msg) {
+            document.getElementById('sidebar-status').innerText = msg;
+            setTimeout(function(){ document.getElementById('sidebar-status').innerText = ''; }, 2000);
+        }
+        function deleteLastItem() {
+            var btn = document.querySelector('#del-trigger-btn');
+            if (btn) { btn.click(); setStatus('✅ 已删除最近一条'); }
+        }
+        function clearAllItems() {
+            if (!confirm('确定清空全部历史记录？')) return;
+            var btn = document.querySelector('#clear-trigger-btn');
+            if (btn) { btn.click(); setStatus('✅ 已清空全部'); }
+        }
+        </script>
+        """)
+
+        # 顶部导航
         with gr.Row():
             gr.HTML("""
-            <div style="text-align:center;padding:10px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;width:100%;">
-                <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📐 pig</span>
+            <div style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;width:100%;gap:10px;">
+                <button onclick="if(window._pigOpenSidebar)window._pigOpenSidebar()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:0 4px;">☰</button>
+                <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
             </div>
             """)
         admin_btn = gr.Button("🔧 管理员后台", variant="secondary", visible=False, size="sm")
+
+        # 隐藏触发按钮（侧边栏JS调用）
+        history_btn = gr.Button("load_history", visible=False, elem_id="history-load-btn")
+        delete_last_btn = gr.Button("del", visible=False, elem_id="del-trigger-btn")
+        clear_all_btn = gr.Button("clear", visible=False, elem_id="clear-trigger-btn")
+        history_data = gr.State([])
 
         # 聊天视图
         with gr.Column(visible=True, elem_classes="chat-wrap") as chat_view:
@@ -300,21 +431,12 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
             """)
             chatbot = gr.Chatbot(elem_id="chatbot", show_label=False, height=600)
             with gr.Column(elem_classes="input-area"):
-                with gr.Row():
-                    history_btn = gr.Button("📋 历史记录", variant="secondary", scale=1, size="sm")
-                    gr.HTML("<div style='flex:3'></div>")
-                deep_think = gr.Checkbox(label="🧠 深度思考（使用 DeepSeek-R1，更慢更精准）", value=False, elem_id="deep-check")
-                use_search = gr.Checkbox(label="🔍 智能搜索（联网搜索相关资料）", value=False, elem_id="deep-check")
+                deep_think = gr.Checkbox(label="🧠 深度思考（DeepSeek-R1）", value=False, elem_id="deep-check")
+                use_search = gr.Checkbox(label="🔍 智能搜索", value=False, elem_id="deep-check")
                 with gr.Column(elem_classes="input-inner"):
                     with gr.Row():
                         msg = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, scale=5, lines=1, max_lines=8, elem_id="msg-input")
                         send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
-
-        # 历史记录视图
-        with gr.Column(visible=False) as history_view:
-            back_btn = gr.Button("← 返回聊天", variant="secondary")
-            gr.HTML("<h3 style='padding:16px;color:#1a1a1a;'>📋 我的历史提问</h3>")
-            history_display = gr.Chatbot(show_label=False, height=600)
 
         # 管理员视图
         with gr.Column(visible=False) as admin_view:
@@ -324,6 +446,9 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
             </div>""")
             back_admin_btn = gr.Button("← 返回聊天", variant="secondary")
             admin_display = gr.Chatbot(show_label=False, height=600)
+
+        # JS桥接：把历史数据传给侧边栏
+        sidebar_updater = gr.HTML("", visible=False)
 
     def handle_login(email, password):
         nickname, error = do_login(email, password)
@@ -344,16 +469,33 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         else:
             return msg_html, gr.update()
 
-    def show_history(email):
-        history = load_history(email) if email else []
-        return gr.update(visible=False), gr.update(visible=True), history
+    def load_sidebar_history(email):
+        items = load_history_with_meta(email) if email else []
+        # 把数据注入JS
+        import json
+        js = f"<script>window._pigHistoryData={json.dumps(items, ensure_ascii=False)};window._pigOpenSidebar=function(){{openSidebar(window._pigHistoryData)}};openSidebar(window._pigHistoryData);</script>"
+        return items, js
 
-    def hide_history():
-        return gr.update(visible=True), gr.update(visible=False)
+    def do_delete_last(email):
+        if not email:
+            return [], "<script>setStatus('❌ 未登录')</script>"
+        delete_last_conversation(email)
+        items = load_history_with_meta(email)
+        import json
+        js = f"<script>window._pigHistoryData={json.dumps(items, ensure_ascii=False)};renderSidebar();</script>"
+        return items, js
+
+    def do_clear_all(email):
+        if not email:
+            return [], "<script>setStatus('❌ 未登录')</script>"
+        clear_all_history(email)
+        import json
+        js = "<script>window._pigHistoryData=[];renderSidebar();</script>"
+        return [], js
 
     def show_admin():
         records = load_all_conversations()
-        return gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), records
+        return gr.update(visible=False), gr.update(visible=True), records
 
     def hide_admin():
         return gr.update(visible=True), gr.update(visible=False)
@@ -363,9 +505,10 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     reg_btn.click(handle_register, [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
     send.click(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
-    history_btn.click(show_history, [logged_in_user], [chat_view, history_view, history_display])
-    back_btn.click(hide_history, [], [chat_view, history_view])
-    admin_btn.click(show_admin, [], [chat_view, history_view, admin_view, admin_display])
+    history_btn.click(load_sidebar_history, [logged_in_user], [history_data, sidebar_updater])
+    delete_last_btn.click(do_delete_last, [logged_in_user], [history_data, sidebar_updater])
+    clear_all_btn.click(do_clear_all, [logged_in_user], [history_data, sidebar_updater])
+    admin_btn.click(show_admin, [], [chat_view, admin_view, admin_display])
     back_admin_btn.click(hide_admin, [], [chat_view, admin_view])
 
 port = int(os.environ.get("PORT", 7860))
