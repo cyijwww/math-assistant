@@ -22,6 +22,26 @@ def get_conn():
         sslmode="require"
     )
 
+ADMIN_EMAIL = "abc13112629791@qq.com"
+
+def load_all_conversations():
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT email, question, answer, created_at FROM conversations ORDER BY created_at DESC LIMIT 200"
+        )
+        rows = cur.fetchall()
+        conn.close()
+        result = []
+        for email, question, answer, created_at in rows:
+            time_str = created_at.strftime("%m-%d %H:%M") if created_at else ""
+            result.append((f"[{time_str}] {email}：{question}", answer))
+        return result
+    except Exception as e:
+        print(f"Load all conversations error: {e}")
+        return []
+
 def init_db():
     try:
         conn = get_conn()
@@ -117,6 +137,26 @@ def do_login(email, password):
     except Exception as e:
         return None, f"❌ 错误：{str(e)}"
 
+ADMIN_EMAIL = "abc13112629791@qq.com"
+
+def load_all_conversations():
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT email, question, answer, created_at FROM conversations ORDER BY created_at DESC LIMIT 200"
+        )
+        rows = cur.fetchall()
+        conn.close()
+        result = []
+        for email, question, answer, created_at in rows:
+            time_str = created_at.strftime("%m-%d %H:%M") if created_at else ""
+            result.append((f"[{time_str}] {email}：{question}", answer))
+        return result
+    except Exception as e:
+        print(f"Load all conversations error: {e}")
+        return []
+
 init_db()
 
 # ── AI ──
@@ -194,8 +234,9 @@ footer, .built-with { display: none !important; }
 #auth-box { max-width: 400px; margin: 60px auto; background: #fff; border-radius: 20px; padding: 36px 32px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
 #auth-submit { background: #cc6a45 !important; border-radius: 10px !important; color: white !important; font-size: 15px !important; width: 100% !important; }
 #auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
-#chatbot { background: transparent !important; border: none !important; width: 100% !important; padding: 12px 12px 180px 12px !important; min-height: 100vh !important; }
-.input-area { position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; background: #f7f7f5 !important; border-top: 1px solid #e5e5e0 !important; padding: 10px 12px 40px !important; z-index: 9999 !important; }
+#chatbot { background: transparent !important; border: none !important; width: 100% !important; padding: 12px !important; flex: 1 !important; overflow-y: auto !important; }
+.chat-wrap { display: flex !important; flex-direction: column !important; height: 100vh !important; overflow: hidden !important; }
+.input-area { background: #f7f7f5 !important; border-top: 1px solid #e5e5e0 !important; padding: 10px 12px 20px !important; flex-shrink: 0 !important; }
 .input-inner { background: #ffffff; border: 1.5px solid #ddddd8; border-radius: 18px; padding: 10px 12px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
 #deep-check { font-size: 12px !important; color: #888880 !important; margin-bottom: 6px !important; }
 #deep-check label { color: #888880 !important; font-size: 12px !important; }
@@ -217,7 +258,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
             <div style="width:52px;height:52px;background:#cc6a45;border-radius:14px;
                         display:inline-flex;align-items:center;justify-content:center;font-size:24px;">📐</div>
             <h2 style="font-size:22px;font-weight:600;color:#1a1a1a;margin-top:12px;">pig</h2>
-            <p style="color:#888;font-size:13px;margin-top:4px;">你的专属数学辅导老师</p >
+            <p style="color:#888;font-size:13px;margin-top:4px;">你的专属数学辅导老师</p>
         </div>
         """)
         with gr.Tabs() as tabs:
@@ -236,14 +277,16 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
 
     with gr.Column(visible=False) as chat_page:
-        gr.HTML("""
-        <div style="text-align:center;padding:10px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;display:flex;align-items:center;justify-content:center;gap:12px;">
-            <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📐 pig</span>
-        </div>
-        """)
+        with gr.Row():
+            gr.HTML("""
+            <div style="text-align:center;padding:10px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;width:100%;">
+                <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📐 pig</span>
+            </div>
+            """)
+        admin_btn = gr.Button("🔧 管理员后台", variant="secondary", visible=False, size="sm")
 
         # 聊天视图
-        with gr.Column(visible=True) as chat_view:
+        with gr.Column(visible=True, elem_classes="chat-wrap") as chat_view:
             gr.HTML("""
             <div class="welcome-wrap">
                 <div style="width:56px;height:56px;background:#cc6a45;border-radius:16px;
@@ -252,10 +295,10 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                 <h1 style="font-size:26px;font-weight:600;color:#1a1a1a;margin:0 0 10px;">你好，我是pig</h1>
                 <p style="font-size:15px;color:#777770;margin:0;line-height:1.7;">
                     你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
-                </p >
+                </p>
             </div>
             """)
-            chatbot = gr.Chatbot(elem_id="chatbot", show_label=False, height=520)
+            chatbot = gr.Chatbot(elem_id="chatbot", show_label=False, height=600)
             with gr.Column(elem_classes="input-area"):
                 with gr.Row():
                     history_btn = gr.Button("📋 历史记录", variant="secondary", scale=1, size="sm")
@@ -273,18 +316,29 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
             gr.HTML("<h3 style='padding:16px;color:#1a1a1a;'>📋 我的历史提问</h3>")
             history_display = gr.Chatbot(show_label=False, height=600)
 
+        # 管理员视图
+        with gr.Column(visible=False) as admin_view:
+            gr.HTML("""<div style='padding:16px;border-bottom:1px solid #e5e5e0;'>
+                <h3 style='color:#cc6a45;margin:0;'>🔧 管理员后台</h3>
+                <p style='color:#888;font-size:13px;margin:4px 0 0;'>所有学生提问记录</p>
+            </div>""")
+            back_admin_btn = gr.Button("← 返回聊天", variant="secondary")
+            admin_display = gr.Chatbot(show_label=False, height=600)
+
     def handle_login(email, password):
         nickname, error = do_login(email, password)
         if nickname:
-            history = load_history(email.lower().strip())
-            return gr.update(visible=False), gr.update(visible=True), email.lower().strip(), "", history
+            clean_email = email.lower().strip()
+            history = load_history(clean_email)
+            is_admin = clean_email == ADMIN_EMAIL
+            return gr.update(visible=False), gr.update(visible=True), clean_email, "", history, gr.update(visible=is_admin)
         else:
-            return gr.update(visible=True), gr.update(visible=False), None, f'<p style="color:red">{error}</p >', []
+            return gr.update(visible=True), gr.update(visible=False), None, f'<p style="color:red">{error}</p>', [], gr.update(visible=False)
 
     def handle_register(email, password, confirm):
         result = do_register(email, password, confirm)
         color = "green" if "✅" in result else "red"
-        msg_html = f'<p style="color:{color}">{result}</p >'
+        msg_html = f'<p style="color:{color}">{result}</p>'
         if "✅" in result:
             return msg_html, gr.update(selected=0)
         else:
@@ -297,13 +351,22 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     def hide_history():
         return gr.update(visible=True), gr.update(visible=False)
 
-    login_btn.click(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot])
-    login_email.submit(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot])
+    def show_admin():
+        records = load_all_conversations()
+        return gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), records
+
+    def hide_admin():
+        return gr.update(visible=True), gr.update(visible=False)
+
+    login_btn.click(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot, admin_btn])
+    login_email.submit(handle_login, [login_email, login_pass], [auth_page, chat_page, logged_in_user, login_msg, chatbot, admin_btn])
     reg_btn.click(handle_register, [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
     send.click(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user], [msg, chatbot])
     history_btn.click(show_history, [logged_in_user], [chat_view, history_view, history_display])
     back_btn.click(hide_history, [], [chat_view, history_view])
+    admin_btn.click(show_admin, [], [chat_view, history_view, admin_view, admin_display])
+    back_admin_btn.click(hide_admin, [], [chat_view, admin_view])
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
