@@ -188,9 +188,8 @@ def ask(message, history, deep_think, use_search, nickname):
 def make_sidebar_js(email):
     items = load_history_with_meta(email) if email else []
     data  = json.dumps(items, ensure_ascii=False)
-    # 每次生成唯一id防止浏览器缓存不执行
-    uid = secrets.token_hex(4)
-    return f'<span id="sb-{uid}" style="display:none" data-update="true"><script>window._pigHistoryData={data};if(typeof renderSidebar==="function")renderSidebar();</script></span>'
+    uid   = secrets.token_hex(4)
+    return f'<span id="sb-{uid}" data-update="true" style="display:none"></span><script>window._pigHistoryData={data};if(window._pigRenderSidebar)window._pigRenderSidebar(window._pigHistoryData);</script>'
 
 def respond(message, chat_history, deep, search, current_user, nickname):
     if not message.strip():
@@ -241,86 +240,81 @@ footer,.built-with { display:none !important; }
 """
 
 SIDEBAR_HTML = """
-<div id="sidebar-overlay" onclick="window.closeSidebar&&window.closeSidebar()"></div>
-<div id="sidebar">
-  <div id="sidebar-header">
-    <span id="sidebar-title">📋 历史提问</span>
-    <button id="sidebar-close" onclick="window.closeSidebar&&window.closeSidebar()">✕</button>
+<style>
+#pig-toggle { display:none; }
+#pig-topbar label { cursor:pointer; font-size:22px; padding:0 6px; line-height:1; }
+#pig-sidebar { position:fixed; top:0; left:0; width:300px; max-width:85vw; height:100vh;
+    background:#fff; z-index:1001; transform:translateX(-100%);
+    transition:transform .3s ease; display:flex; flex-direction:column;
+    box-shadow:4px 0 20px rgba(0,0,0,.15); }
+#pig-overlay { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh;
+    background:rgba(0,0,0,.35); z-index:1000; }
+#pig-toggle:checked ~ #pig-sidebar { transform:translateX(0); }
+#pig-toggle:checked ~ #pig-overlay { display:block; }
+</style>
+<input type="checkbox" id="pig-toggle">
+<div id="pig-overlay" onclick="document.getElementById('pig-toggle').checked=false"></div>
+<div id="pig-sidebar">
+  <div style="padding:16px;border-bottom:1px solid #e5e5e0;display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📋 历史提问</span>
+    <button onclick="document.getElementById('pig-toggle').checked=false"
+      style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;padding:4px 8px;">✕</button>
   </div>
-  <div id="sidebar-actions">
-    <button id="sidebar-del-btn" onclick="deleteLastItem()">🗑 删除最近一条</button>
-    <button id="sidebar-clear-btn" onclick="clearAllItems()">⚠️ 清空全部</button>
+  <div style="padding:10px 12px;display:flex;gap:8px;border-bottom:1px solid #e5e5e0;">
+    <button onclick="document.getElementById('del-trigger-btn button').click()"
+      id="pig-del-btn"
+      style="flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fff;">
+      🗑 删除最近一条</button>
+    <button onclick="if(confirm('确定清空全部？'))document.getElementById('pig-clear-btn-real').click()"
+      style="flex:1;padding:7px;border-radius:8px;border:1px solid #e88;font-size:12px;cursor:pointer;background:#fff;color:#c44;">
+      ⚠️ 清空全部</button>
   </div>
-  <div id="sidebar-status"></div>
-  <div id="sidebar-list"></div>
+  <div id="pig-sidebar-status" style="padding:8px 16px;font-size:12px;color:#cc6a45;min-height:24px;"></div>
+  <div id="pig-sidebar-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
+</div>
+<div id="pig-topbar" style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;gap:10px;position:sticky;top:0;z-index:100;">
+  <label for="pig-toggle" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 6px;line-height:1;">☰</label>
+  <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
 </div>
 <script>
-window._pigHistoryData = [];
-window.openSidebar = function() {
-    renderSidebar();
-    document.getElementById('sidebar').classList.add('open');
-    document.getElementById('sidebar-overlay').classList.add('open');
-}
-window.closeSidebar = function() {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebar-overlay').classList.remove('open');
-}
-function renderSidebar() {
-    var list  = document.getElementById('sidebar-list');
+window._pigRenderSidebar = function(items) {
+    var list = document.getElementById('pig-sidebar-list');
     if (!list) return;
-    var items = window._pigHistoryData || [];
-    if (!items.length) {
+    if (!items || !items.length) {
         list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px;">暂无历史记录</div>';
         return;
     }
     list.innerHTML = items.map(function(item) {
-        var m    = item[0].match(/^\x5B(.+?)\x5D (.+)$/);
-        var time = m ? m[1] : '';
-        var q    = m ? m[2] : item[0];
-        return '<div class="sidebar-item"><div class="sidebar-item-time">'+time+'</div><div class="sidebar-item-q">'+q+'</div></div>';
+        var m = item[0].match(/^\x5B(.+?)\x5D (.+)$/);
+        return '<div style="padding:12px 16px;border-bottom:1px solid #f0f0ee;">'
+            + '<div style="font-size:11px;color:#aaa;margin-bottom:4px;">' + (m?m[1]:'') + '</div>'
+            + '<div style="font-size:13px;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m?m[2]:item[0]) + '</div>'
+            + '</div>';
     }).join('');
-}
-function setStatus(msg) {
-    var el = document.getElementById('sidebar-status');
-    if (!el) return;
-    el.innerText = msg;
-    setTimeout(function(){ el.innerText=''; }, 2000);
-}
-function deleteLastItem() {
-    var btn = document.getElementById('del-trigger-btn');
-    if (btn) { btn.click(); setStatus('✅ 已删除最近一条'); }
-}
-function clearAllItems() {
-    if (!confirm('确定清空全部历史记录？')) return;
-    var btn = document.getElementById('clear-trigger-btn');
-    if (btn) { btn.click(); setStatus('✅ 已清空全部'); }
-}
-// 监听Gradio动态注入的侧边栏更新节点
-var _sbObs = new MutationObserver(function(muts) {
+};
+// 监听Gradio注入的更新节点
+new MutationObserver(function(muts) {
     muts.forEach(function(m) {
         m.addedNodes.forEach(function(node) {
-            if (node.dataset && node.dataset.update) {
-                var s = node.querySelector('script');
-                if (s) { try { eval(s.innerText); } catch(e){} }
+            if (node.dataset && node.dataset.update && window._pigHistoryData) {
+                window._pigRenderSidebar(window._pigHistoryData);
             }
         });
     });
-});
-_sbObs.observe(document.body, { childList: true, subtree: true });
-</script>
-<div id="pig-topbar" style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;gap:10px;position:sticky;top:0;z-index:100;">
-  <button id="pig-menu-btn" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 6px;line-height:1;">☰</button>
-  <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
-</div>
-<script>
-document.getElementById('pig-menu-btn').addEventListener('click', function() {
-    document.getElementById('sidebar').classList.add('open');
-    document.getElementById('sidebar-overlay').classList.add('open');
-    renderSidebar();
+}).observe(document.body, { childList:true, subtree:true });
+// 删除按钮代理
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.id === 'pig-del-btn') {
+        var btns = document.querySelectorAll('button');
+        for (var i=0; i<btns.length; i++) {
+            if (btns[i].id === 'del-trigger-btn') { btns[i].click(); break; }
+        }
+    }
 });
 </script>
 """
 
+# ── UI ──
 # ── UI ──
 with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
