@@ -289,6 +289,18 @@ new MutationObserver(function(muts) {
         });
     });
 }).observe(document.body, { childList:true, subtree:true });
+// 轮询等待Gradio菜单按钮渲染完毕后绑定点击
+(function waitMenu() {
+    var found = null;
+    document.querySelectorAll('button').forEach(function(b) {
+        if (b.textContent.trim() === '☰') found = b;
+    });
+    if (found) {
+        found.addEventListener('click', pigOpen);
+    } else {
+        setTimeout(waitMenu, 300);
+    }
+})();
 </script>
 """
 
