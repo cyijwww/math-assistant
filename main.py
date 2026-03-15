@@ -198,6 +198,9 @@ footer, .built-with { display:none !important; }
 #chatbot-wrap { padding-bottom:160px !important; }
 
 .welcome-wrap { text-align:center; padding:20px 16px; }
+#pig-topbar { background:#f7f7f5 !important; border-bottom:1px solid #e5e5e0 !important; padding:6px 8px !important; position:sticky !important; top:0 !important; z-index:100 !important; align-items:center !important; }
+#pig-topbar button { min-width:36px !important; height:32px !important; padding:0 8px !important; }
+#menu-btn { font-size:18px !important; }
 
 /* 侧边栏 */
 #pig-toggle { display:none; }
@@ -263,18 +266,6 @@ function pigStatus(msg) {
 }
 document.addEventListener('click', function(e) {
     var id = e.target && e.target.id;
-    if (id === 'pig-clear-chat-btn') {
-        var btns = document.querySelectorAll('button');
-        for (var i=0; i<btns.length; i++) {
-            if (btns[i].id === 'clear-chat-btn') { btns[i].click(); break; }
-        }
-    }
-    if (id === 'pig-logout-btn') {
-        var btns = document.querySelectorAll('button');
-        for (var i=0; i<btns.length; i++) {
-            if (btns[i].innerText.trim() === '退出登录') { btns[i].click(); break; }
-        }
-    }
     if (id === 'pig-close') { pigClose(); }
     if (id === 'pig-del-btn') {
         var btns = document.querySelectorAll('button');
@@ -299,20 +290,6 @@ new MutationObserver(function(muts) {
     });
 }).observe(document.body, { childList:true, subtree:true });
 </script>
-<div style="display:flex;align-items:center;padding:10px 12px;
-            border-bottom:1px solid #e5e5e0;background:#f7f7f5;
-            position:sticky;top:0;z-index:100;">
-  <button id="pig-menu"
-    style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 6px;line-height:1;"
-    onclick="pigOpen()">☰</button>
-  <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
-  <button id="pig-clear-chat-btn"
-    style="background:none;border:none;font-size:18px;cursor:pointer;padding:0 6px;color:#aaa;"
-    title="清空对话">🗑</button>
-  <button id="pig-logout-btn"
-    style="background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;
-           cursor:pointer;padding:4px 10px;color:#888;line-height:1.5;">退出</button>
-</div>
 """
 
 with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
@@ -344,12 +321,17 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     with gr.Column(visible=False) as chat_page:
         gr.HTML(SIDEBAR_HTML)
+        with gr.Row(elem_id="pig-topbar"):
+            menu_btn      = gr.Button("☰",    variant="secondary", scale=0, size="sm", elem_id="menu-btn")
+            gr.HTML("<span style='flex:1;text-align:center;font-size:15px;font-weight:600;color:#1a1a1a;line-height:36px;'>📐 pig</span>")
+            clear_chat_btn2 = gr.Button("🗑",  variant="secondary", scale=0, size="sm")
+            logout_btn2   = gr.Button("退出",  variant="secondary", scale=0, size="sm")
 
 
 
-        logout_btn      = gr.Button("退出登录", variant="secondary", size="sm", visible=False)
+        logout_btn      = gr.Button("退出登录", visible=False)
         delete_last_btn = gr.Button("del",   visible=False, elem_id="del-trigger-btn")
-        clear_chat_btn  = gr.Button("clearchat", visible=False, elem_id="clear-chat-btn")
+
         clear_all_btn   = gr.Button("clear", visible=False, elem_id="clear-trigger-btn")
         sidebar_updater = gr.HTML("")
 
@@ -402,7 +384,6 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     login_btn.click(handle_login,    [login_email, login_pass], login_outputs)
     login_email.submit(handle_login, [login_email, login_pass], login_outputs)
     reg_btn.click(handle_register,   [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
-    logout_btn.click(handle_logout,  [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, sidebar_updater])
 
     send.click(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick],
                [msg, chatbot, sidebar_updater])
@@ -410,8 +391,10 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                [msg, chatbot, sidebar_updater])
 
     delete_last_btn.click(do_delete_last, [logged_in_user], [chatbot, sidebar_updater])
-    clear_chat_btn.click(lambda: [], [], [chatbot])
     clear_all_btn.click(do_clear_all,     [logged_in_user], [chatbot, sidebar_updater])
+    clear_chat_btn2.click(lambda: [], [], [chatbot])
+    logout_btn2.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, sidebar_updater])
+    menu_btn.click(None, [], [], js="pigOpen()")
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
