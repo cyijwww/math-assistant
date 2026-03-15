@@ -372,6 +372,10 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     def handle_logout():
         return gr.update(visible=True), gr.update(visible=False), None, None, [], make_sidebar_js(None)
 
+    def open_sidebar_fn():
+        uid = secrets.token_hex(4)
+        return f'<span id="sb-{uid}" style="display:none"></span><script>pigOpen();</script>'
+
     def do_delete_last(email):
         if email: delete_last_conversation(email)
         return load_history(email) if email else [], make_sidebar_js(email)
@@ -394,7 +398,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     clear_all_btn.click(do_clear_all,     [logged_in_user], [chatbot, sidebar_updater])
     clear_chat_btn2.click(lambda: [], [], [chatbot])
     logout_btn2.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, sidebar_updater])
-    menu_btn.click(None, [], [], js="pigOpen()")
+    menu_btn.click(open_sidebar_fn, [], [sidebar_updater])
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
