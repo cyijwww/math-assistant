@@ -16,7 +16,7 @@ def get_conn():
         host=r.hostname, port=r.port or 6543,
         database=r.path.lstrip("/"),
         user=r.username, password=r.password,
-        sslmode="require"
+        sslmode="prefer"
     )
 
 def db_exec(sql, params=(), fetch=None):
