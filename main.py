@@ -217,19 +217,27 @@ footer, .built-with { display:none !important; }
 """
 
 SIDEBAR_HTML = """
-<input type="checkbox" id="pig-toggle">
-<div id="pig-overlay" onclick="this.classList.remove('open');document.getElementById('pig-sidebar').classList.remove('open');"></div>
-<div id="pig-sidebar">
+<div id="pig-sidebar" style="position:fixed;top:0;left:0;width:300px;max-width:85vw;height:100vh;
+  background:#fff;z-index:1001;transform:translateX(-100%);
+  transition:transform .3s ease;display:flex;flex-direction:column;
+  box-shadow:4px 0 20px rgba(0,0,0,.15);">
   <div style="padding:16px;border-bottom:1px solid #e5e5e0;display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:15px;font-weight:600;color:#1a1a1a;">📋 历史提问</span>
-    <button id="pig-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;padding:4px 8px;">✕</button>
+    <span style="font-size:15px;font-weight:600;">📋 历史提问</span>
+    <button onclick="pigClose()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;padding:4px 8px;">✕</button>
   </div>
   <div style="padding:10px 12px;display:flex;gap:8px;border-bottom:1px solid #e5e5e0;">
-    <button id="pig-del-btn" style="flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
-    <button id="pig-clear-btn" style="flex:1;padding:7px;border-radius:8px;border:1px solid #e88;font-size:12px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
+    <button onclick="pigDel()" style="flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
+    <button onclick="pigClear()" style="flex:1;padding:7px;border-radius:8px;border:1px solid #e88;font-size:12px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
   </div>
   <div id="pig-status" style="padding:8px 16px;font-size:12px;color:#cc6a45;min-height:24px;"></div>
   <div id="pig-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
+</div>
+<div id="pig-overlay" onclick="pigClose()" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.35);z-index:1000;"></div>
+<div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid #e5e5e0;background:#f7f7f5;position:sticky;top:0;z-index:100;">
+  <button onclick="pigOpen()" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 6px;line-height:1;">☰</button>
+  <span style="font-size:15px;font-weight:600;color:#1a1a1a;flex:1;text-align:center;">📐 pig</span>
+  <button onclick="pigClearChat()" style="background:none;border:none;font-size:18px;cursor:pointer;padding:0 6px;color:#aaa;" title="清空对话">🗑</button>
+  <button onclick="pigLogout()" style="background:none;border:1px solid #ddd;border-radius:8px;font-size:12px;cursor:pointer;padding:4px 10px;color:#888;margin-left:4px;">退出</button>
 </div>
 <script>
 window._pigData = [];
@@ -243,64 +251,55 @@ window._pigRender = function() {
     }
     list.innerHTML = items.map(function(item) {
         var m = item[0].match(/^\x5B(.+?)\x5D (.+)$/);
-        var time = m ? m[1] : '';
-        var q = m ? m[2] : item[0];
         return '<div style="padding:12px 16px;border-bottom:1px solid #f0f0ee;">'
-            + '<div style="font-size:11px;color:#aaa;margin-bottom:4px;">' + time + '</div>'
-            + '<div style="font-size:13px;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + q + '</div>'
+            + '<div style="font-size:11px;color:#aaa;margin-bottom:4px;">'+(m?m[1]:'')+'</div>'
+            + '<div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(m?m[2]:item[0])+'</div>'
             + '</div>';
     }).join('');
 };
 function pigOpen() {
     window._pigRender();
-    document.getElementById('pig-sidebar').classList.add('open');
-    document.getElementById('pig-overlay').classList.add('open');
+    document.getElementById('pig-sidebar').style.transform='translateX(0)';
+    document.getElementById('pig-overlay').style.display='block';
 }
 function pigClose() {
-    document.getElementById('pig-sidebar').classList.remove('open');
-    document.getElementById('pig-overlay').classList.remove('open');
+    document.getElementById('pig-sidebar').style.transform='translateX(-100%)';
+    document.getElementById('pig-overlay').style.display='none';
 }
 function pigStatus(msg) {
-    var el = document.getElementById('pig-status');
-    if (el) { el.innerText = msg; setTimeout(function(){ el.innerText=''; }, 2000); }
+    var el=document.getElementById('pig-status');
+    if(el){el.innerText=msg;setTimeout(function(){el.innerText='';},2000);}
 }
-document.addEventListener('click', function(e) {
-    var id = e.target && e.target.id;
-    if (id === 'pig-close') { pigClose(); }
-    if (id === 'pig-del-btn') {
-        var btns = document.querySelectorAll('button');
-        for (var i=0; i<btns.length; i++) {
-            if (btns[i].id === 'del-trigger-btn') { btns[i].click(); pigStatus('✅ 已删除'); break; }
-        }
-    }
-    if (id === 'pig-clear-btn') {
-        if (!confirm('确定清空全部历史记录？')) return;
-        var btns = document.querySelectorAll('button');
-        for (var i=0; i<btns.length; i++) {
-            if (btns[i].id === 'clear-trigger-btn') { btns[i].click(); pigStatus('✅ 已清空'); break; }
-        }
-    }
-    if (id === 'pig-menu') { pigOpen(); }
-});
-new MutationObserver(function(muts) {
-    muts.forEach(function(m) {
-        m.addedNodes.forEach(function(n) {
-            if (n.dataset && n.dataset.pigUpdate && window._pigData) window._pigRender();
+function pigDel() {
+    document.querySelectorAll('button').forEach(function(b){
+        if(b.id==='del-trigger-btn'){b.click();}
+    });
+    setTimeout(function(){pigStatus('✅ 已删除');window._pigRender();},500);
+}
+function pigClear() {
+    if(!confirm('确定清空全部历史记录？'))return;
+    document.querySelectorAll('button').forEach(function(b){
+        if(b.id==='clear-trigger-btn'){b.click();}
+    });
+    setTimeout(function(){pigStatus('✅ 已清空');window._pigRender();},500);
+}
+function pigClearChat() {
+    document.querySelectorAll('button').forEach(function(b){
+        if(b.id==='clear-chat-btn'){b.click();}
+    });
+}
+function pigLogout() {
+    document.querySelectorAll('button').forEach(function(b){
+        if(b.innerText.trim()==='退出登录'){b.click();}
+    });
+}
+new MutationObserver(function(muts){
+    muts.forEach(function(m){
+        m.addedNodes.forEach(function(n){
+            if(n.dataset&&n.dataset.pigUpdate)window._pigRender();
         });
     });
-}).observe(document.body, { childList:true, subtree:true });
-// 轮询等待Gradio菜单按钮渲染完毕后绑定点击
-(function waitMenu() {
-    var found = null;
-    document.querySelectorAll('button').forEach(function(b) {
-        if (b.textContent.trim() === '☰') found = b;
-    });
-    if (found) {
-        found.addEventListener('click', pigOpen);
-    } else {
-        setTimeout(waitMenu, 300);
-    }
-})();
+}).observe(document.body,{childList:true,subtree:true});
 </script>
 """
 
@@ -333,16 +332,13 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     with gr.Column(visible=False) as chat_page:
         gr.HTML(SIDEBAR_HTML)
-        with gr.Row(elem_id="pig-topbar"):
-            menu_btn      = gr.Button("☰",    variant="secondary", scale=0, size="sm", elem_id="menu-btn")
-            gr.HTML("<span style='flex:1;text-align:center;font-size:15px;font-weight:600;color:#1a1a1a;line-height:36px;'>📐 pig</span>")
-            clear_chat_btn2 = gr.Button("🗑",  variant="secondary", scale=0, size="sm")
-            logout_btn2   = gr.Button("退出",  variant="secondary", scale=0, size="sm")
+
 
 
 
         logout_btn      = gr.Button("退出登录", visible=False)
         delete_last_btn = gr.Button("del",   visible=False, elem_id="del-trigger-btn")
+        clear_chat_btn  = gr.Button("cc", visible=False, elem_id="clear-chat-btn")
 
         clear_all_btn   = gr.Button("clear", visible=False, elem_id="clear-trigger-btn")
         sidebar_updater = gr.HTML("")
@@ -384,10 +380,6 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     def handle_logout():
         return gr.update(visible=True), gr.update(visible=False), None, None, [], make_sidebar_js(None)
 
-    def open_sidebar_fn():
-        uid = secrets.token_hex(4)
-        return f'<span id="sb-{uid}" style="display:none"></span><script>pigOpen();</script>'
-
     def do_delete_last(email):
         if email: delete_last_conversation(email)
         return load_history(email) if email else [], make_sidebar_js(email)
@@ -407,10 +399,8 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                [msg, chatbot, sidebar_updater])
 
     delete_last_btn.click(do_delete_last, [logged_in_user], [chatbot, sidebar_updater])
+    clear_chat_btn.click(lambda: [], [], [chatbot])
     clear_all_btn.click(do_clear_all,     [logged_in_user], [chatbot, sidebar_updater])
-    clear_chat_btn2.click(lambda: [], [], [chatbot])
-    logout_btn2.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, sidebar_updater])
-    menu_btn.click(open_sidebar_fn, [], [sidebar_updater])
 
 port = int(os.environ.get("PORT", 7860))
 demo.launch(server_name="0.0.0.0", server_port=port)
