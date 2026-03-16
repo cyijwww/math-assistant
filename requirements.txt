@@ -1,6 +1,7 @@
 gradio==4.44.1
+gradio_client==0.9.1
 openai>=1.0.0
 duckduckgo-search
 requests
 psycopg2-binary
-huggingface_hub==0.24.0
+huggingface_hub>=0.20.0,<0.24.0
