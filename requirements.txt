@@ -1,4 +1,5 @@
-gradio==4.44.1
+gradio==4.44.0
 openai
 duckduckgo-search
 psycopg2-binary
+huggingface_hub==0.19.4
