@@ -1,4 +1,4 @@
-gradio>=5.0.0
+gradio==4.44.1
 openai
 duckduckgo-search
 psycopg2-binary
