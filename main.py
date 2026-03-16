@@ -365,7 +365,6 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
         chatbot = gr.Chatbot(
             elem_id="chatbot", show_label=False, height=500,
-            type="messages", bubble_full_width=False
         )
 
         with gr.Column(elem_classes="input-area"):
