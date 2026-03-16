@@ -170,7 +170,8 @@ def respond(message, chat_history, deep, search, current_user, nickname):
         if current_user: save_conversation(current_user, message, answer)
     except Exception as e:
         answer = f"⚠️ 请求失败：{str(e)}"
-    chat_history.append((message, answer))
+    chat_history.append({"role":"user","content":message})
+    chat_history.append({"role":"assistant","content":answer})
     return "", chat_history
 
 CSS = """
@@ -364,7 +365,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
         chatbot = gr.Chatbot(
             elem_id="chatbot", show_label=False, height=500,
-            bubble_full_width=False
+            type="messages", bubble_full_width=False
         )
 
         with gr.Column(elem_classes="input-area"):
@@ -372,7 +373,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
             use_search = gr.Checkbox(label="🔍 智能搜索", value=False)
             with gr.Column(elem_classes="input-inner"):
                 with gr.Row():
-                    msg  = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, lines=2)
+                    msg  = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, scale=5, lines=1, max_lines=6, elem_id="msg-input")
                     send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
 
     # ── 事件 ──
