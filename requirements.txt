@@ -3,3 +3,4 @@ openai>=1.0.0
 duckduckgo-search
 requests
 psycopg2-binary
+huggingface_hub==0.24.0
