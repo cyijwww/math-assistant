@@ -416,4 +416,4 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
 
 port = int(os.environ.get("PORT", 7860))
-demo.launch(server_name="0.0.0.0", server_port=port)
+demo.launch(server_name="0.0.0.0", server_port=port, show_api=False)
