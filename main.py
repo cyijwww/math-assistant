@@ -136,7 +136,7 @@ def clear_all_history(email):
     try: db_exec("DELETE FROM conversations WHERE email=%s", (email,))
     except Exception as e: print(f"Clear error: {e}")
 
-client = OpenAI(api_key=os.environ.get("DEEPSEEK_API_KEY",""), base_url="https://api.deepseek.com/v1")
+client = OpenAI(api_key=os.environ.get("DEEPSEEK_API_KEY","sk-3b1488b14e6349a2b3d366c23814a053"), base_url="https://api.deepseek.com/v1")
 
 def web_search(query):
     try:
