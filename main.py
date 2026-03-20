@@ -1,3 +1,16 @@
+# ── 修复 gradio_client bool bug ──────────────────────
+try:
+    import gradio_client.utils as _gcu
+    _orig = _gcu.get_type
+    def _safe_get_type(schema):
+        if not isinstance(schema, (dict, str)):
+            return str
+        return _orig(schema)
+    _gcu.get_type = _safe_get_type
+except Exception:
+    pass
+# ─────────────────────────────────────────────────────
+
 import os
 import json
 import hashlib
@@ -416,4 +429,4 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
 
 port = int(os.environ.get("PORT", 7860))
-demo.launch(server_name="0.0.0.0", server_port=port,show_api=False)
+demo.launch(server_name="0.0.0.0", server_port=port, show_api=False)
