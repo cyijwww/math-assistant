@@ -1,6 +1,6 @@
-gradio==4.36.1
-pydantic==2.7.1
-huggingface_hub==0.19.4
+gradio==4.44.1
 openai>=1.0.0
-duckduckgo-search>=4.0.0
-psycopg2-binary>=2.9
+duckduckgo-search
+requests
+psycopg2-binary
+huggingface_hub==0.24.0
