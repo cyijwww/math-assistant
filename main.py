@@ -1,4 +1,4 @@
-# ── 修复 gradio_client bool/schema bug + localhost 检查 ──
+# ── 修复 gradio_client bool/schema bug ──
 try:
     import gradio_client.utils as _gcu
     _orig_get_type = _gcu.get_type
@@ -8,15 +8,15 @@ try:
         return _orig_get_type(schema)
     _gcu.get_type = _safe_get_type
 
-    _orig_json_schema = _gcu._json_schema_to_python_type
-    def _safe_json_schema(schema, defs=None):
+    _orig_js = _gcu._json_schema_to_python_type
+    def _safe_js(schema, defs=None):
         if not isinstance(schema, dict):
             return "str"
         try:
-            return _orig_json_schema(schema, defs)
+            return _orig_js(schema, defs)
         except Exception:
             return "str"
-    _gcu._json_schema_to_python_type = _safe_json_schema
+    _gcu._json_schema_to_python_type = _safe_js
 except Exception:
     pass
 
@@ -25,19 +25,15 @@ try:
     _gnet.url_ok = lambda url: True
 except Exception:
     pass
-
 try:
-    import gradio.utils as _gutils
-    if hasattr(_gutils, 'url_ok'):
-        _gutils.url_ok = lambda url: True
+    import gradio.utils as _gu
+    if hasattr(_gu, 'url_ok'):
+        _gu.url_ok = lambda url: True
 except Exception:
     pass
 # ─────────────────────────────────────────────────────
 
-import os
-import json
-import hashlib
-import secrets
+import os, json, hashlib, secrets
 import gradio as gr
 from openai import OpenAI
 from duckduckgo_search import DDGS
@@ -59,7 +55,7 @@ def db_exec(sql, params=(), fetch=None):
     conn = None
     try:
         conn = get_conn()
-        cur  = conn.cursor()
+        cur = conn.cursor()
         cur.execute(sql, params)
         result = None
         if fetch == "one": result = cur.fetchone()
@@ -95,7 +91,7 @@ def init_db():
         )""")
         db_exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS salt TEXT NOT NULL DEFAULT ''")
     except Exception as e:
-        print(f"Init DB note: {e}")
+        print(f"Init DB: {e}")
 
 init_db()
 
@@ -106,9 +102,9 @@ def hash_pw(password, salt=None):
 def do_register(email, password, confirm):
     email = email.lower().strip()
     if not email or not password: return "❌ 请填写邮箱和密码"
-    if "@" not in email:          return "❌ 邮箱格式不正确"
-    if password != confirm:       return "❌ 两次密码不一致"
-    if len(password) < 6:         return "❌ 密码至少6位"
+    if "@" not in email: return "❌ 邮箱格式不正确"
+    if password != confirm: return "❌ 两次密码不一致"
+    if len(password) < 6: return "❌ 密码至少6位"
     h, salt = hash_pw(password)
     try:
         db_exec("INSERT INTO users (email,password_hash,salt) VALUES (%s,%s,%s)", (email, h, salt))
@@ -132,11 +128,11 @@ def do_login(email, password):
     if h == db_hash: return db_email, db_email.split("@")[0], None
     return None, None, "❌ 邮箱或密码错误"
 
-def save_conversation(email, q, a):
+def save_conv(email, q, a):
     try: db_exec("INSERT INTO conversations (email,question,answer) VALUES (%s,%s,%s)", (email, q, a))
-    except Exception as e: print(f"Save error: {e}")
+    except Exception as e: print(f"Save: {e}")
 
-def load_history_chat(email):
+def load_history(email):
     try:
         rows = db_exec("SELECT question,answer FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50", (email,), fetch="all") or []
         result = []
@@ -146,13 +142,13 @@ def load_history_chat(email):
         return result
     except: return []
 
-def delete_last_conversation(email):
+def del_last(email):
     try: db_exec("DELETE FROM conversations WHERE id=(SELECT id FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 1)", (email,))
-    except Exception as e: print(f"Delete error: {e}")
+    except: pass
 
-def clear_all_history(email):
+def clear_all(email):
     try: db_exec("DELETE FROM conversations WHERE email=%s", (email,))
-    except Exception as e: print(f"Clear error: {e}")
+    except: pass
 
 client = OpenAI(
     api_key=os.environ.get("DEEPSEEK_API_KEY", "sk-3b1488b14e6349a2b3d366c23814a053"),
@@ -171,15 +167,15 @@ def fix_latex(text):
     for s in ["\\(","\\)","\\[","\\]","$$","$"]: text = text.replace(s, "")
     return text
 
-def ask(message, history, deep_think, use_search, nickname):
+def ask_ai(message, history, deep_think, use_search, nickname):
     model = "deepseek-reasoner" if deep_think else "deepseek-chat"
     search_ctx = web_search(message) if use_search else ""
     n = len([m for m in history if m["role"]=="user"])
     level = "这是第一次提问，请友好介绍自己。" if n==0 else ("请耐心详细解释。" if n<5 else "可以适当加深难度。")
     name_str = f"同学叫【{nickname}】，请称呼他/她。" if nickname else ""
-    sys = f"你叫pig，是专业的大学数学辅导老师。{name_str}{level}\n步骤清晰、先思路后计算、最后总结、态度亲切。"
-    if search_ctx: sys += f"\n\n参考搜索结果：{search_ctx}"
-    msgs = [{"role":"system","content":sys}] + history + [{"role":"user","content":message}]
+    sys_prompt = f"你叫pig，是专业的大学数学辅导老师。{name_str}{level}\n步骤清晰、先思路后计算、最后总结、态度亲切。"
+    if search_ctx: sys_prompt += f"\n\n参考搜索结果：{search_ctx}"
+    msgs = [{"role":"system","content":sys_prompt}] + history + [{"role":"user","content":message}]
     resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=4000, temperature=0.3)
     return fix_latex(resp.choices[0].message.content)
 
@@ -187,8 +183,8 @@ def respond(message, chat_history, deep, search, current_user, nickname):
     if not message.strip():
         return "", chat_history
     try:
-        answer = ask(message, chat_history, deep, search, nickname)
-        if current_user: save_conversation(current_user, message, answer)
+        answer = ask_ai(message, chat_history, deep, search, nickname)
+        if current_user: save_conv(current_user, message, answer)
     except Exception as e:
         answer = f"⚠️ 请求失败：{str(e)}"
     chat_history.append({"role":"user","content":message})
@@ -201,6 +197,7 @@ body, .gradio-container {
     background: #f7f7f5 !important;
     font-family: Georgia, serif !important;
     max-width: 100% !important;
+    height: 100vh !important;
 }
 footer, .built-with { display: none !important; }
 
@@ -208,7 +205,7 @@ footer, .built-with { display: none !important; }
 #auth-box {
     max-width: 420px !important;
     margin: 60px auto !important;
-    background: #ffffff !important;
+    background: #fff !important;
     border-radius: 20px !important;
     padding: 36px 32px 28px !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
@@ -219,7 +216,6 @@ footer, .built-with { display: none !important; }
     border-bottom: 2px solid #cc6a45 !important;
     font-weight: 600 !important;
 }
-#auth-box button[role="tab"] { font-size: 15px !important; }
 #auth-submit {
     background: #cc6a45 !important;
     border-radius: 12px !important;
@@ -234,46 +230,92 @@ footer, .built-with { display: none !important; }
 #auth-submit:hover { background: #b85a38 !important; }
 #auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
 
+/* ── 聊天页整体布局：固定高度，flex 纵向 ── */
+#chat-page {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+}
+
 /* ── 顶部导航栏 ── */
 #topbar {
     display: flex !important;
     align-items: center !important;
     padding: 6px 10px !important;
-    border-bottom: 1px solid #e5e5e0 !important;
     background: #f7f7f5 !important;
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 100 !important;
-    gap: 4px !important;
+    border-bottom: 1px solid #e5e5e0 !important;
+    flex-shrink: 0 !important;
+    gap: 2px !important;
 }
-/* 所有顶栏按钮统一样式 */
-#btn-menu, #btn-clear-chat, #btn-logout {
-    background: none !important;
-    border: none !important;
-    border-radius: 8px !important;
-    font-size: 18px !important;
-    padding: 4px 8px !important;
-    min-width: unset !important;
-    width: auto !important;
-    color: #444 !important;
-    box-shadow: none !important;
-    cursor: pointer !important;
+#btn-menu, #btn-clearchat {
+    background: none !important; border: none !important;
+    border-radius: 8px !important; font-size: 20px !important;
+    padding: 4px 8px !important; min-width: unset !important;
+    width: auto !important; color: #444 !important;
+    box-shadow: none !important; line-height: 1 !important;
 }
-#btn-menu:hover, #btn-clear-chat:hover { background: #eee !important; }
+#btn-menu:hover, #btn-clearchat:hover { background: #e8e8e4 !important; }
 #btn-logout {
+    background: none !important;
     border: 1px solid #ddd !important;
+    border-radius: 8px !important;
     font-size: 13px !important;
     padding: 4px 10px !important;
     color: #888 !important;
+    min-width: unset !important;
+    box-shadow: none !important;
 }
-#btn-logout:hover { background: #f5f5f5 !important; }
+#btn-logout:hover { background: #f0f0ee !important; }
 #topbar-title {
+    flex: 1;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+/* ── 聊天区域可滚动 ── */
+#chat-scroll {
     flex: 1 !important;
-    text-align: center !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    color: #1a1a1a !important;
-    pointer-events: none !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+}
+#chatbot {
+    background: transparent !important;
+    border: none !important;
+    height: auto !important;
+    min-height: 200px !important;
+}
+
+/* ── 底部输入区 固定在底部 ── */
+#input-area {
+    flex-shrink: 0 !important;
+    background: #f7f7f5 !important;
+    border-top: 1px solid #e5e5e0 !important;
+    padding: 8px 12px 20px !important;
+}
+.input-inner {
+    background: #fff;
+    border: 1.5px solid #ddddd8;
+    border-radius: 18px;
+    padding: 10px 12px 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+}
+#msg-input textarea {
+    background: transparent !important;
+    border: none !important; outline: none !important;
+    font-size: 15px !important; resize: none !important;
+    font-family: inherit !important;
+}
+#msg-input .wrap { border: none !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; }
+#msg-input { border: none !important; flex: 1 !important; }
+#send-btn {
+    background: #cc6a45 !important; border: none !important;
+    border-radius: 10px !important;
+    width: 40px !important; height: 40px !important;
+    min-width: 40px !important; padding: 0 !important;
+    color: white !important; font-size: 20px !important;
 }
 
 /* ── 侧边栏 ── */
@@ -294,55 +336,25 @@ footer, .built-with { display: none !important; }
 }
 #pig-overlay.open { display: block; }
 
-/* ── 聊天区 ── */
-#chatbot { background: transparent !important; border: none !important; }
-.input-area {
-    background: #f7f7f5 !important;
-    border-top: 1px solid #e5e5e0 !important;
-    padding: 8px 12px 24px !important;
-}
-.input-inner {
-    background: #fff;
-    border: 1.5px solid #ddddd8;
-    border-radius: 18px;
-    padding: 10px 12px 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-}
-#msg-input textarea {
-    background: transparent !important;
-    border: none !important;
-    outline: none !important;
-    font-size: 15px !important;
-    resize: none !important;
-    font-family: inherit !important;
-}
-#msg-input .wrap { border: none !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; }
-#msg-input { border: none !important; flex: 1 !important; }
-#send-btn {
-    background: #cc6a45 !important;
-    border: none !important;
-    border-radius: 10px !important;
-    width: 36px !important; height: 36px !important;
-    min-width: 36px !important; padding: 0 !important;
-    color: white !important; font-size: 20px !important;
-}
-.welcome-wrap { text-align: center; padding: 20px 16px; }
+.welcome-wrap { text-align: center; padding: 24px 16px 8px; }
 """
 
 DRAWER_HTML = """
-<div id="pig-overlay" onclick="pigClose()"></div>
+<div id="pig-overlay" onclick="document.getElementById('pig-drawer').classList.remove('open');this.classList.remove('open');"></div>
 <div id="pig-drawer">
   <div style="padding:16px;border-bottom:1px solid #e5e5e0;display:flex;align-items:center;justify-content:space-between;">
     <span style="font-size:15px;font-weight:600;">📋 历史提问</span>
-    <button onclick="pigClose()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;">✕</button>
+    <button onclick="document.getElementById('pig-drawer').classList.remove('open');document.getElementById('pig-overlay').classList.remove('open');"
+            style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1;">✕</button>
   </div>
   <div style="padding:10px 12px;display:flex;gap:8px;border-bottom:1px solid #e5e5e0;">
-    <button id="drawer-del-btn" style="flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
-    <button id="drawer-clr-btn" style="flex:1;padding:7px;border-radius:8px;border:1px solid #e88;font-size:12px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
+    <button id="js-del" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;font-size:13px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
+    <button id="js-clr" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e88;font-size:13px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
   </div>
   <div id="pig-status" style="padding:6px 16px;font-size:12px;color:#cc6a45;min-height:22px;"></div>
   <div id="pig-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
 </div>
+
 <script>
 window._pigData = [];
 window.pigRender = function() {
@@ -357,59 +369,50 @@ window.pigRender = function() {
         var m = it[0].match(/^\x5B(.+?)\x5D (.+)$/);
         return '<div style="padding:12px 16px;border-bottom:1px solid #f0f0ee;">'
             +'<div style="font-size:11px;color:#aaa;margin-bottom:3px;">'+(m?m[1]:'')+'</div>'
-            +'<div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(m?m[2]:it[0])+'</div>'
+            +'<div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;">'+(m?m[2]:it[0])+'</div>'
             +'</div>';
     }).join('');
-};
-window.pigOpen = function() {
-    pigRender();
-    document.getElementById('pig-drawer').classList.add('open');
-    document.getElementById('pig-overlay').classList.add('open');
-};
-window.pigClose = function() {
-    document.getElementById('pig-drawer').classList.remove('open');
-    document.getElementById('pig-overlay').classList.remove('open');
 };
 function pigStatus(msg) {
     var el = document.getElementById('pig-status');
     if (el) { el.innerText = msg; setTimeout(function(){el.innerText='';},2000); }
 }
-// 侧边栏内的删除/清空按钮 → 触发 Gradio 按钮
+// 侧边栏删除/清空 → 点击对应 Gradio 按钮
 document.addEventListener('click', function(e) {
-    if (e.target.id === 'drawer-del-btn') {
-        var b = document.querySelector('#btn-del-proxy button');
-        if (b) b.click();
+    if (e.target.id === 'js-del') {
+        var wrap = document.getElementById('gr-btn-del');
+        if (wrap) { var b = wrap.querySelector('button'); if(b) b.click(); }
         setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
     }
-    if (e.target.id === 'drawer-clr-btn') {
-        if (!confirm('确定清空全部历史？')) return;
-        var b = document.querySelector('#btn-clr-proxy button');
-        if (b) b.click();
+    if (e.target.id === 'js-clr') {
+        if (!confirm('确定清空全部历史记录？')) return;
+        var wrap = document.getElementById('gr-btn-clr');
+        if (wrap) { var b = wrap.querySelector('button'); if(b) b.click(); }
         setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
     }
 });
 new MutationObserver(function(ms){
     ms.forEach(function(m){
         m.addedNodes.forEach(function(n){
-            if(n.dataset && n.dataset.pigupdate) pigRender();
+            if(n.dataset && n.dataset.pu) { window.pigRender(); }
         });
     });
-}).observe(document.body, {childList:true, subtree:true});
+}).observe(document.body,{childList:true,subtree:true});
 </script>
 """
 
-def make_update_js(email):
+def make_js(email):
     items = []
     if email:
         try:
-            rows = db_exec("SELECT question,created_at FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50", (email,), fetch="all") or []
-            for q, t in rows:
+            rows = db_exec("SELECT question,created_at FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50",(email,),fetch="all") or []
+            for q,t in rows:
                 ts = t.strftime("%Y-%m-%d %H:%M") if t else ""
-                items.append([f"[{ts}] {q}", ""])
+                items.append([f"[{ts}] {q}",""])
         except: pass
     data = json.dumps(items, ensure_ascii=False)
     uid = secrets.token_hex(4)
-    return f'<span id="u{uid}" data-pigupdate="1" style="display:none"></span><script>window._pigData={data};</script>'
+    return f'<span data-pu="1" style="display:none" id="pu{uid}"></span><script>window._pigData={data};</script>'
 
 with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
@@ -441,86 +444,94 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                 gr.HTML("<p style='text-align:center;color:#aaa;font-size:12px;margin-top:8px;'>注册成功后请点击上方登录标签</p>")
 
     # ── 聊天页 ──
-    with gr.Column(visible=False) as chat_page:
+    with gr.Column(visible=False, elem_id="chat-page") as chat_page:
         gr.HTML(DRAWER_HTML)
-        data_updater = gr.HTML("")
+        data_upd = gr.HTML("")
 
-        # ── 真正的顶部导航栏（Gradio原生按钮）──
+        # 顶部导航栏（真实 Gradio 按钮）
         with gr.Row(elem_id="topbar"):
-            btn_menu      = gr.Button("☰",  elem_id="btn-menu")
-            gr.HTML('<span id="topbar-title">📐 pig</span>')
-            btn_clearchat = gr.Button("🗑",  elem_id="btn-clear-chat")
-            btn_logout    = gr.Button("退出", elem_id="btn-logout")
+            btn_menu = gr.Button("☰", elem_id="btn-menu", scale=0)
+            gr.HTML('<div id="topbar-title">📐 pig</div>')
+            btn_clearchat = gr.Button("🗑", elem_id="btn-clearchat", scale=0)
+            btn_logout    = gr.Button("退出", elem_id="btn-logout", scale=0)
 
-        # 侧边栏操作的代理按钮（屏幕外但在DOM中）
-        with gr.Row(visible=True, elem_id="proxy-row"):
-            gr.HTML('<div style="position:fixed;left:-9999px;top:-9999px;display:flex;gap:4px;">', visible=True)
-            btn_del_proxy = gr.Button("del", elem_id="btn-del-proxy")
-            btn_clr_proxy = gr.Button("clr", elem_id="btn-clr-proxy")
+        # 侧边栏代理按钮（屏幕外）
+        with gr.Row():
+            gr.HTML('<div style="position:fixed;left:-9999px;width:1px;height:1px;overflow:hidden;">')
+            btn_del = gr.Button("del", elem_id="gr-btn-del")
+            btn_clr = gr.Button("clr", elem_id="gr-btn-clr")
+            gr.HTML('</div>')
 
+        # 欢迎语
         gr.HTML("""
         <div class="welcome-wrap">
           <div style="width:56px;height:56px;background:#cc6a45;border-radius:16px;
-              display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px;
-              box-shadow:0 4px 12px rgba(204,106,69,0.3);">📐</div>
-          <h1 style="font-size:24px;font-weight:600;color:#1a1a1a;margin:0 0 8px;">你好，我是pig</h1>
-          <p style="font-size:14px;color:#777;margin:0;line-height:1.7;">
+              display:inline-flex;align-items:center;justify-content:center;font-size:26px;
+              box-shadow:0 4px 12px rgba(204,106,69,0.3);margin-bottom:12px;">📐</div>
+          <h1 style="font-size:22px;font-weight:600;color:#1a1a1a;margin:0 0 6px;">你好，我是pig</h1>
+          <p style="font-size:13px;color:#888;margin:0;line-height:1.8;">
             你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
           </p>
         </div>""")
 
-        chatbot = gr.Chatbot(
-            elem_id="chatbot", show_label=False, height=500,
-            type="messages", bubble_full_width=False
-        )
+        # 聊天窗口（可滚动区域）
+        with gr.Column(elem_id="chat-scroll"):
+            chatbot = gr.Chatbot(
+                elem_id="chatbot", show_label=False,
+                height=420, type="messages", bubble_full_width=False
+            )
 
-        with gr.Column(elem_classes="input-area"):
-            deep_think = gr.Checkbox(label="🧠 深度思考（DeepSeek-R1）", value=False)
-            use_search = gr.Checkbox(label="🔍 智能搜索", value=False)
+        # 底部输入区
+        with gr.Column(elem_id="input-area"):
+            with gr.Row():
+                deep_think = gr.Checkbox(label="🧠 深度思考（R1）", value=False, scale=1)
+                use_search = gr.Checkbox(label="🔍 智能搜索", value=False, scale=1)
             with gr.Column(elem_classes="input-inner"):
                 with gr.Row():
-                    msg  = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, scale=5, lines=1, max_lines=6, elem_id="msg-input")
+                    msg  = gr.Textbox(
+                        placeholder="向pig提问任何数学问题...",
+                        show_label=False, scale=5, lines=1, max_lines=5,
+                        elem_id="msg-input"
+                    )
                     send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
 
-    # ── 事件 ──
+    # ── 事件绑定 ──
     def handle_login(email, password):
         db_email, nickname, error = do_login(email, password)
         if db_email:
             return (gr.update(visible=False), gr.update(visible=True),
                     db_email, nickname, "",
-                    load_history_chat(db_email), make_update_js(db_email))
+                    load_history(db_email), make_js(db_email))
         return (gr.update(visible=True), gr.update(visible=False),
                 None, None, f'<p style="color:red">{error}</p>', [], "")
 
     def handle_register(email, password, confirm):
         result = do_register(email, password, confirm)
-        color  = "green" if "✅" in result else "red"
+        color = "green" if "✅" in result else "red"
         return f'<p style="color:{color}">{result}</p>', (gr.update(selected=0) if "✅" in result else gr.update())
 
     def handle_logout():
-        return gr.update(visible=True), gr.update(visible=False), None, None, [], make_update_js(None)
+        return gr.update(visible=True), gr.update(visible=False), None, None, [], make_js(None)
 
-    def do_del(email):
-        if email: delete_last_conversation(email)
-        return load_history_chat(email) if email else [], make_update_js(email)
+    def handle_del(email):
+        if email: del_last(email)
+        return load_history(email) if email else [], make_js(email)
 
-    def do_clear(email):
-        if email: clear_all_history(email)
-        return [], make_update_js(email)
+    def handle_clr(email):
+        if email: clear_all(email)
+        return [], make_js(email)
 
-    login_outputs = [auth_page, chat_page, logged_in_user, logged_in_nick, login_msg, chatbot, data_updater]
-    login_btn.click(handle_login,    [login_email, login_pass], login_outputs)
-    login_email.submit(handle_login, [login_email, login_pass], login_outputs)
-    reg_btn.click(handle_register,   [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
+    login_out = [auth_page, chat_page, logged_in_user, logged_in_nick, login_msg, chatbot, data_upd]
+    login_btn.click(handle_login, [login_email, login_pass], login_out)
+    login_email.submit(handle_login, [login_email, login_pass], login_out)
+    reg_btn.click(handle_register, [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
 
-    # 顶栏按钮直接绑定事件
-    btn_logout.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, data_updater])
+    btn_logout.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, data_upd])
     btn_clearchat.click(lambda: [], [], [chatbot])
-    btn_menu.click(None, js="() => { window.pigOpen(); }")
+    btn_menu.click(None, js="() => { document.getElementById('pig-drawer').classList.toggle('open'); document.getElementById('pig-overlay').classList.toggle('open'); }")
 
-    # 侧边栏代理按钮
-    btn_del_proxy.click(do_del,   [logged_in_user], [chatbot, data_updater])
-    btn_clr_proxy.click(do_clear, [logged_in_user], [chatbot, data_updater])
+    btn_del.click(handle_del, [logged_in_user], [chatbot, data_upd])
+    btn_clr.click(handle_clr, [logged_in_user], [chatbot, data_upd])
 
     send.click(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
