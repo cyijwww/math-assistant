@@ -206,12 +206,14 @@ body, .gradio-container {
 }
 footer, .built-with { display: none !important; }
 
-/* 隐藏代理按钮 — 用CSS隐藏而不是visible=False，确保DOM中存在 */
+/* 隐藏代理按钮容器，但保留在DOM中 */
 #_pdel, #_pclr, #_pcc, #_plo {
-    position: absolute !important;
-    width: 1px !important; height: 1px !important;
-    overflow: hidden !important; opacity: 0 !important;
-    pointer-events: none !important; z-index: -1 !important;
+    position: fixed !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
 }
 
 /* 登录卡片 */
@@ -224,8 +226,6 @@ footer, .built-with { display: none !important; }
     box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
     border: none !important;
 }
-
-/* Tab 选中下划线 */
 #auth-box button[role="tab"][aria-selected="true"] {
     color: #cc6a45 !important;
     border-bottom: 2px solid #cc6a45 !important;
@@ -235,8 +235,6 @@ footer, .built-with { display: none !important; }
     font-size: 15px !important;
     font-family: Georgia, serif !important;
 }
-
-/* 登录注册按钮 */
 #auth-submit {
     background: #cc6a45 !important;
     border-radius: 12px !important;
@@ -353,6 +351,17 @@ NAV_AND_DRAWER = """
 
 <script>
 window._pigData = [];
+
+// 关键修复：Gradio 4.x 的 elem_id 在外层容器，真正的按钮在里面
+function clickGradioBtn(id) {
+    var container = document.getElementById(id);
+    if (!container) return false;
+    // 找容器内的 button 元素并点击
+    var btn = container.querySelector('button');
+    if (btn) { btn.click(); return true; }
+    return false;
+}
+
 window.pigRender = function() {
     var el = document.getElementById('pig-list');
     if (!el) return;
@@ -382,18 +391,18 @@ function pigStatus(msg) {
     var el = document.getElementById('pig-status');
     if (el) { el.innerText = msg; setTimeout(function(){el.innerText='';}, 2000); }
 }
-function clickById(id) {
-    var b = document.getElementById(id);
-    if (b) { b.click(); return true; }
-    // 尝试找到 Gradio 渲染后的按钮
-    var els = document.querySelectorAll('#' + id + ' button');
-    if (els.length) { els[0].click(); return true; }
-    return false;
+function pigDel() {
+    clickGradioBtn('_pdel');
+    setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
 }
-function pigDel()      { clickById('_pdel'); setTimeout(function(){pigStatus('✅ 已删除');pigRender();},600); }
-function pigClearAll() { if(!confirm('确定清空？'))return; clickById('_pclr'); setTimeout(function(){pigStatus('✅ 已清空');pigRender();},600); }
-function pigClearChat(){ clickById('_pcc'); }
-function pigLogout()   { clickById('_plo'); }
+function pigClearAll() {
+    if (!confirm('确定清空全部历史？')) return;
+    clickGradioBtn('_pclr');
+    setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
+}
+function pigClearChat() { clickGradioBtn('_pcc'); }
+function pigLogout()    { clickGradioBtn('_plo'); }
+
 new MutationObserver(function(ms){
     ms.forEach(function(m){
         m.addedNodes.forEach(function(n){
@@ -451,7 +460,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         nav_html     = gr.HTML(NAV_AND_DRAWER)
         data_updater = gr.HTML("")
 
-        # 关键修复：不用 visible=False，改用 CSS 隐藏，确保按钮在 DOM 中存在
+        # 用CSS隐藏，确保按钮在DOM中存在，JavaScript才能找到并点击
         _pdel = gr.Button("d",  elem_id="_pdel")
         _pclr = gr.Button("c",  elem_id="_pclr")
         _pcc  = gr.Button("cc", elem_id="_pcc")
