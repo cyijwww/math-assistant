@@ -1,7 +1,6 @@
 # ── 修复 gradio_client bool/schema bug + localhost 检查 ──
 try:
     import gradio_client.utils as _gcu
-
     _orig_get_type = _gcu.get_type
     def _safe_get_type(schema):
         if not isinstance(schema, (dict, str)):
@@ -18,7 +17,6 @@ try:
         except Exception:
             return "str"
     _gcu._json_schema_to_python_type = _safe_json_schema
-
 except Exception:
     pass
 
@@ -206,17 +204,7 @@ body, .gradio-container {
 }
 footer, .built-with { display: none !important; }
 
-/* 隐藏代理按钮容器，但保留在DOM中 */
-#_pdel, #_pclr, #_pcc, #_plo {
-    position: fixed !important;
-    left: -9999px !important;
-    top: -9999px !important;
-    width: 1px !important;
-    height: 1px !important;
-    overflow: hidden !important;
-}
-
-/* 登录卡片 */
+/* ── 登录卡片 ── */
 #auth-box {
     max-width: 420px !important;
     margin: 60px auto !important;
@@ -231,10 +219,7 @@ footer, .built-with { display: none !important; }
     border-bottom: 2px solid #cc6a45 !important;
     font-weight: 600 !important;
 }
-#auth-box button[role="tab"] {
-    font-size: 15px !important;
-    font-family: Georgia, serif !important;
-}
+#auth-box button[role="tab"] { font-size: 15px !important; }
 #auth-submit {
     background: #cc6a45 !important;
     border-radius: 12px !important;
@@ -244,13 +229,72 @@ footer, .built-with { display: none !important; }
     width: 100% !important;
     padding: 12px !important;
     border: none !important;
-    cursor: pointer !important;
     letter-spacing: 2px !important;
 }
 #auth-submit:hover { background: #b85a38 !important; }
 #auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
 
-/* 聊天区 */
+/* ── 顶部导航栏 ── */
+#topbar {
+    display: flex !important;
+    align-items: center !important;
+    padding: 6px 10px !important;
+    border-bottom: 1px solid #e5e5e0 !important;
+    background: #f7f7f5 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    gap: 4px !important;
+}
+/* 所有顶栏按钮统一样式 */
+#btn-menu, #btn-clear-chat, #btn-logout {
+    background: none !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 18px !important;
+    padding: 4px 8px !important;
+    min-width: unset !important;
+    width: auto !important;
+    color: #444 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+}
+#btn-menu:hover, #btn-clear-chat:hover { background: #eee !important; }
+#btn-logout {
+    border: 1px solid #ddd !important;
+    font-size: 13px !important;
+    padding: 4px 10px !important;
+    color: #888 !important;
+}
+#btn-logout:hover { background: #f5f5f5 !important; }
+#topbar-title {
+    flex: 1 !important;
+    text-align: center !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: #1a1a1a !important;
+    pointer-events: none !important;
+}
+
+/* ── 侧边栏 ── */
+#pig-drawer {
+    position: fixed; top: 0; left: 0;
+    width: 280px; max-width: 80vw; height: 100vh;
+    background: #fff; z-index: 9999;
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+    display: flex; flex-direction: column;
+}
+#pig-drawer.open { transform: translateX(0); }
+#pig-overlay {
+    display: none; position: fixed; top:0; left:0;
+    width:100vw; height:100vh;
+    background: rgba(0,0,0,0.4); z-index: 9998;
+}
+#pig-overlay.open { display: block; }
+
+/* ── 聊天区 ── */
 #chatbot { background: transparent !important; border: none !important; }
 .input-area {
     background: #f7f7f5 !important;
@@ -272,96 +316,35 @@ footer, .built-with { display: none !important; }
     resize: none !important;
     font-family: inherit !important;
 }
-#msg-input .wrap {
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}
+#msg-input .wrap { border: none !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; }
 #msg-input { border: none !important; flex: 1 !important; }
 #send-btn {
     background: #cc6a45 !important;
     border: none !important;
     border-radius: 10px !important;
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    padding: 0 !important;
-    color: white !important;
-    font-size: 20px !important;
+    width: 36px !important; height: 36px !important;
+    min-width: 36px !important; padding: 0 !important;
+    color: white !important; font-size: 20px !important;
 }
 .welcome-wrap { text-align: center; padding: 20px 16px; }
-
-/* 侧边栏 */
-#pig-drawer {
-    position: fixed; top: 0; left: 0;
-    width: 280px; max-width: 80vw; height: 100vh;
-    background: #fff; z-index: 9999;
-    transform: translateX(-100%);
-    transition: transform 0.28s ease;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.15);
-    display: flex; flex-direction: column;
-}
-#pig-drawer.open { transform: translateX(0); }
-#pig-overlay {
-    display: none; position: fixed; top:0; left:0;
-    width:100vw; height:100vh;
-    background: rgba(0,0,0,0.4); z-index: 9998;
-}
-#pig-overlay.open { display: block; }
-#pig-topbar {
-    display: flex; align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid #e5e5e0;
-    background: #f7f7f5;
-    position: sticky; top: 0; z-index: 100;
-}
-#pig-topbar .pig-nav-btn {
-    background: none; border: none; cursor: pointer;
-    font-size: 20px; padding: 4px 8px; border-radius: 8px; line-height: 1;
-}
-#pig-topbar .pig-nav-btn:hover { background: #eee; }
-#pig-exit-btn {
-    background: none; border: 1px solid #ddd; border-radius: 8px;
-    font-size: 12px; cursor: pointer; padding: 4px 10px; color: #888;
-}
 """
 
-NAV_AND_DRAWER = """
+DRAWER_HTML = """
 <div id="pig-overlay" onclick="pigClose()"></div>
 <div id="pig-drawer">
   <div style="padding:16px;border-bottom:1px solid #e5e5e0;display:flex;align-items:center;justify-content:space-between;">
     <span style="font-size:15px;font-weight:600;">📋 历史提问</span>
-    <button class="pig-nav-btn" onclick="pigClose()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;">✕</button>
+    <button onclick="pigClose()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;">✕</button>
   </div>
   <div style="padding:10px 12px;display:flex;gap:8px;border-bottom:1px solid #e5e5e0;">
-    <button onclick="pigDel()" style="flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
-    <button onclick="pigClearAll()" style="flex:1;padding:7px;border-radius:8px;border:1px solid #e88;font-size:12px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
+    <button id="drawer-del-btn" style="flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
+    <button id="drawer-clr-btn" style="flex:1;padding:7px;border-radius:8px;border:1px solid #e88;font-size:12px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
   </div>
   <div id="pig-status" style="padding:6px 16px;font-size:12px;color:#cc6a45;min-height:22px;"></div>
   <div id="pig-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
 </div>
-
-<div id="pig-topbar">
-  <button class="pig-nav-btn" onclick="pigOpen()">☰</button>
-  <span style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#1a1a1a;">📐 pig</span>
-  <button class="pig-nav-btn" onclick="pigClearChat()" title="清空对话">🗑</button>
-  <button id="pig-exit-btn" onclick="pigLogout()">退出</button>
-</div>
-
 <script>
 window._pigData = [];
-
-// 关键修复：Gradio 4.x 的 elem_id 在外层容器，真正的按钮在里面
-function clickGradioBtn(id) {
-    var container = document.getElementById(id);
-    if (!container) return false;
-    // 找容器内的 button 元素并点击
-    var btn = container.querySelector('button');
-    if (btn) { btn.click(); return true; }
-    return false;
-}
-
 window.pigRender = function() {
     var el = document.getElementById('pig-list');
     if (!el) return;
@@ -389,20 +372,22 @@ window.pigClose = function() {
 };
 function pigStatus(msg) {
     var el = document.getElementById('pig-status');
-    if (el) { el.innerText = msg; setTimeout(function(){el.innerText='';}, 2000); }
+    if (el) { el.innerText = msg; setTimeout(function(){el.innerText='';},2000); }
 }
-function pigDel() {
-    clickGradioBtn('_pdel');
-    setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
-}
-function pigClearAll() {
-    if (!confirm('确定清空全部历史？')) return;
-    clickGradioBtn('_pclr');
-    setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
-}
-function pigClearChat() { clickGradioBtn('_pcc'); }
-function pigLogout()    { clickGradioBtn('_plo'); }
-
+// 侧边栏内的删除/清空按钮 → 触发 Gradio 按钮
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'drawer-del-btn') {
+        var b = document.querySelector('#btn-del-proxy button');
+        if (b) b.click();
+        setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
+    }
+    if (e.target.id === 'drawer-clr-btn') {
+        if (!confirm('确定清空全部历史？')) return;
+        var b = document.querySelector('#btn-clr-proxy button');
+        if (b) b.click();
+        setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
+    }
+});
 new MutationObserver(function(ms){
     ms.forEach(function(m){
         m.addedNodes.forEach(function(n){
@@ -457,14 +442,21 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     # ── 聊天页 ──
     with gr.Column(visible=False) as chat_page:
-        nav_html     = gr.HTML(NAV_AND_DRAWER)
+        gr.HTML(DRAWER_HTML)
         data_updater = gr.HTML("")
 
-        # 用CSS隐藏，确保按钮在DOM中存在，JavaScript才能找到并点击
-        _pdel = gr.Button("d",  elem_id="_pdel")
-        _pclr = gr.Button("c",  elem_id="_pclr")
-        _pcc  = gr.Button("cc", elem_id="_pcc")
-        _plo  = gr.Button("lo", elem_id="_plo")
+        # ── 真正的顶部导航栏（Gradio原生按钮）──
+        with gr.Row(elem_id="topbar"):
+            btn_menu      = gr.Button("☰",  elem_id="btn-menu")
+            gr.HTML('<span id="topbar-title">📐 pig</span>')
+            btn_clearchat = gr.Button("🗑",  elem_id="btn-clear-chat")
+            btn_logout    = gr.Button("退出", elem_id="btn-logout")
+
+        # 侧边栏操作的代理按钮（屏幕外但在DOM中）
+        with gr.Row(visible=True, elem_id="proxy-row"):
+            gr.HTML('<div style="position:fixed;left:-9999px;top:-9999px;display:flex;gap:4px;">', visible=True)
+            btn_del_proxy = gr.Button("del", elem_id="btn-del-proxy")
+            btn_clr_proxy = gr.Button("clr", elem_id="btn-clr-proxy")
 
         gr.HTML("""
         <div class="welcome-wrap">
@@ -521,10 +513,14 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     login_email.submit(handle_login, [login_email, login_pass], login_outputs)
     reg_btn.click(handle_register,   [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
 
-    _plo.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, data_updater])
-    _pcc.click(lambda: [], [], [chatbot])
-    _pdel.click(do_del,   [logged_in_user], [chatbot, data_updater])
-    _pclr.click(do_clear, [logged_in_user], [chatbot, data_updater])
+    # 顶栏按钮直接绑定事件
+    btn_logout.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, data_updater])
+    btn_clearchat.click(lambda: [], [], [chatbot])
+    btn_menu.click(None, js="() => { window.pigOpen(); }")
+
+    # 侧边栏代理按钮
+    btn_del_proxy.click(do_del,   [logged_in_user], [chatbot, data_updater])
+    btn_clr_proxy.click(do_clear, [logged_in_user], [chatbot, data_updater])
 
     send.click(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
     msg.submit(respond, [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
