@@ -206,6 +206,14 @@ body, .gradio-container {
 }
 footer, .built-with { display: none !important; }
 
+/* 隐藏代理按钮 — 用CSS隐藏而不是visible=False，确保DOM中存在 */
+#_pdel, #_pclr, #_pcc, #_plo {
+    position: absolute !important;
+    width: 1px !important; height: 1px !important;
+    overflow: hidden !important; opacity: 0 !important;
+    pointer-events: none !important; z-index: -1 !important;
+}
+
 /* 登录卡片 */
 #auth-box {
     max-width: 420px !important;
@@ -376,7 +384,11 @@ function pigStatus(msg) {
 }
 function clickById(id) {
     var b = document.getElementById(id);
-    if (b) b.click();
+    if (b) { b.click(); return true; }
+    // 尝试找到 Gradio 渲染后的按钮
+    var els = document.querySelectorAll('#' + id + ' button');
+    if (els.length) { els[0].click(); return true; }
+    return false;
 }
 function pigDel()      { clickById('_pdel'); setTimeout(function(){pigStatus('✅ 已删除');pigRender();},600); }
 function pigClearAll() { if(!confirm('确定清空？'))return; clickById('_pclr'); setTimeout(function(){pigStatus('✅ 已清空');pigRender();},600); }
@@ -439,10 +451,11 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         nav_html     = gr.HTML(NAV_AND_DRAWER)
         data_updater = gr.HTML("")
 
-        _pdel = gr.Button("d",  visible=False, elem_id="_pdel")
-        _pclr = gr.Button("c",  visible=False, elem_id="_pclr")
-        _pcc  = gr.Button("cc", visible=False, elem_id="_pcc")
-        _plo  = gr.Button("lo", visible=False, elem_id="_plo")
+        # 关键修复：不用 visible=False，改用 CSS 隐藏，确保按钮在 DOM 中存在
+        _pdel = gr.Button("d",  elem_id="_pdel")
+        _pclr = gr.Button("c",  elem_id="_pclr")
+        _pcc  = gr.Button("cc", elem_id="_pcc")
+        _plo  = gr.Button("lo", elem_id="_plo")
 
         gr.HTML("""
         <div class="welcome-wrap">
