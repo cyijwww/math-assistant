@@ -156,7 +156,10 @@ def clear_all_history(email):
     try: db_exec("DELETE FROM conversations WHERE email=%s", (email,))
     except Exception as e: print(f"Clear error: {e}")
 
-client = OpenAI(api_key=os.environ.get("DEEPSEEK_API_KEY","sk-3b1488b14e6349a2b3d366c23814a053"), base_url="https://api.deepseek.com/v1")
+client = OpenAI(
+    api_key=os.environ.get("DEEPSEEK_API_KEY", "sk-3b1488b14e6349a2b3d366c23814a053"),
+    base_url="https://api.deepseek.com/v1"
+)
 
 def web_search(query):
     try:
@@ -195,24 +198,134 @@ def respond(message, chat_history, deep, search, current_user, nickname):
     return "", chat_history
 
 CSS = """
-* { box-sizing:border-box; margin:0; padding:0; }
-body,.gradio-container { background:#f7f7f5 !important; font-family:Georgia,serif !important; max-width:100% !important; }
-footer,.built-with { display:none !important; }
+/* ── 全局 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body, .gradio-container {
+    background: #f7f7f5 !important;
+    font-family: Georgia, serif !important;
+    max-width: 100% !important;
+    min-height: 100vh;
+}
+footer, .built-with, .svelte-1ipelgc { display: none !important; }
 
-#auth-box { max-width:400px; margin:60px auto; background:#fff; border-radius:20px; padding:36px 32px; box-shadow:0 4px 24px rgba(0,0,0,.08); }
-#auth-submit { background:#cc6a45 !important; border-radius:10px !important; color:white !important; font-size:15px !important; width:100% !important; }
-#auth-msg { text-align:center; font-size:14px; margin-top:8px; }
+/* ── 登录卡片 ── */
+#auth-box {
+    max-width: 420px !important;
+    margin: 60px auto !important;
+    background: #ffffff !important;
+    border-radius: 20px !important;
+    padding: 36px 32px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
+    border: none !important;
+}
+#auth-box .gap { gap: 12px !important; }
 
-#chatbot { background:transparent !important; border:none !important; }
-.input-area { background:#f7f7f5 !important; border-top:1px solid #e5e5e0 !important; padding:8px 12px 24px !important; }
-.input-inner { background:#fff; border:1.5px solid #ddddd8; border-radius:18px; padding:10px 12px 8px; box-shadow:0 2px 10px rgba(0,0,0,.07); }
-#msg-input textarea { background:transparent !important; border:none !important; outline:none !important; font-size:15px !important; resize:none !important; font-family:inherit !important; }
-#msg-input .wrap { border:none !important; box-shadow:none !important; background:transparent !important; padding:0 !important; }
-#msg-input { border:none !important; flex:1 !important; }
-#send-btn { background:#cc6a45 !important; border:none !important; border-radius:10px !important; width:36px !important; height:36px !important; min-width:36px !important; padding:0 !important; color:white !important; font-size:20px !important; }
+/* ── Tab 样式 ── */
+#auth-box .tab-nav {
+    border-bottom: 1.5px solid #e5e5e0 !important;
+    margin-bottom: 16px !important;
+    background: transparent !important;
+}
+#auth-box .tab-nav button {
+    font-size: 15px !important;
+    font-family: Georgia, serif !important;
+    color: #999 !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    background: transparent !important;
+    padding: 8px 16px !important;
+    margin-bottom: -1.5px !important;
+    cursor: pointer !important;
+}
+#auth-box .tab-nav button.selected {
+    color: #cc6a45 !important;
+    border-bottom: 2px solid #cc6a45 !important;
+    font-weight: 600 !important;
+}
 
-.welcome-wrap { text-align:center; padding:20px 16px; }
+/* ── 输入框 ── */
+#auth-box input[type="text"],
+#auth-box input[type="email"],
+#auth-box input[type="password"],
+#auth-box textarea {
+    background: #f5f5f3 !important;
+    border: 1.5px solid #e8e8e4 !important;
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+    font-size: 15px !important;
+    font-family: Georgia, serif !important;
+    width: 100% !important;
+    outline: none !important;
+    transition: border-color 0.2s;
+}
+#auth-box input:focus, #auth-box textarea:focus {
+    border-color: #cc6a45 !important;
+}
+#auth-box .wrap { border: none !important; box-shadow: none !important; background: transparent !important; }
+#auth-box label { display: none !important; }
 
+/* ── 登录/注册按钮 ── */
+#auth-submit {
+    background: #cc6a45 !important;
+    border-radius: 12px !important;
+    color: white !important;
+    font-size: 16px !important;
+    font-family: Georgia, serif !important;
+    width: 100% !important;
+    padding: 12px !important;
+    border: none !important;
+    cursor: pointer !important;
+    margin-top: 8px !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px !important;
+}
+#auth-submit:hover { background: #b85a38 !important; }
+#auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
+
+/* ── 聊天页 ── */
+#chatbot {
+    background: transparent !important;
+    border: none !important;
+}
+#chatbot .message-wrap { padding: 8px 0 !important; }
+.input-area {
+    background: #f7f7f5 !important;
+    border-top: 1px solid #e5e5e0 !important;
+    padding: 8px 12px 24px !important;
+}
+.input-inner {
+    background: #fff;
+    border: 1.5px solid #ddddd8;
+    border-radius: 18px;
+    padding: 10px 12px 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+}
+#msg-input textarea {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    font-size: 15px !important;
+    resize: none !important;
+    font-family: inherit !important;
+}
+#msg-input .wrap { border: none !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; }
+#msg-input { border: none !important; flex: 1 !important; }
+#send-btn {
+    background: #cc6a45 !important;
+    border: none !important;
+    border-radius: 10px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    color: white !important;
+    font-size: 20px !important;
+}
+
+/* ── 欢迎区 ── */
+.welcome-wrap { text-align: center; padding: 20px 16px; }
+
+/* ── 侧边栏 ── */
 #pig-drawer {
     position: fixed; top: 0; left: 0;
     width: 280px; max-width: 80vw; height: 100vh;
@@ -308,7 +421,6 @@ function pigDel()      { clickById('_pdel'); setTimeout(function(){pigStatus('�
 function pigClearAll() { if(!confirm('确定清空？'))return; clickById('_pclr'); setTimeout(function(){pigStatus('✅ 已清空');pigRender();},600); }
 function pigClearChat(){ clickById('_pcc'); }
 function pigLogout()   { clickById('_plo'); }
-
 new MutationObserver(function(ms){
     ms.forEach(function(m){
         m.addedNodes.forEach(function(n){
@@ -337,13 +449,15 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     logged_in_user = gr.State(None)
     logged_in_nick = gr.State(None)
 
+    # ── 登录页 ──
     with gr.Column(elem_id="auth-box", visible=True) as auth_page:
         gr.HTML("""
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="width:52px;height:52px;background:#cc6a45;border-radius:14px;
-                      display:inline-flex;align-items:center;justify-content:center;font-size:24px;">📐</div>
-          <h2 style="font-size:22px;font-weight:600;color:#1a1a1a;margin-top:12px;">pig</h2>
-          <p style="color:#888;font-size:13px;margin-top:4px;">你的专属数学辅导老师</p>
+        <div style="text-align:center;margin-bottom:28px;">
+          <div style="width:64px;height:64px;background:#cc6a45;border-radius:18px;
+                      display:inline-flex;align-items:center;justify-content:center;font-size:30px;
+                      box-shadow:0 4px 12px rgba(204,106,69,0.3);">📐</div>
+          <h2 style="font-size:24px;font-weight:700;color:#1a1a1a;margin-top:14px;letter-spacing:1px;">pig</h2>
+          <p style="color:#999;font-size:13px;margin-top:6px;">你的专属数学辅导老师</p>
         </div>""")
         with gr.Tabs() as tabs:
             with gr.Tab("登录"):
@@ -359,6 +473,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                 reg_msg     = gr.HTML(elem_id="auth-msg")
                 gr.HTML("<p style='text-align:center;color:#aaa;font-size:12px;margin-top:8px;'>注册成功后请点击上方登录标签</p>")
 
+    # ── 聊天页 ──
     with gr.Column(visible=False) as chat_page:
         nav_html     = gr.HTML(NAV_AND_DRAWER)
         data_updater = gr.HTML("")
@@ -371,7 +486,8 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         gr.HTML("""
         <div class="welcome-wrap">
           <div style="width:56px;height:56px;background:#cc6a45;border-radius:16px;
-              display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px;">📐</div>
+              display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px;
+              box-shadow:0 4px 12px rgba(204,106,69,0.3);">📐</div>
           <h1 style="font-size:24px;font-weight:600;color:#1a1a1a;margin:0 0 8px;">你好，我是pig</h1>
           <p style="font-size:14px;color:#777;margin:0;line-height:1.7;">
             你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
@@ -391,6 +507,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                     msg  = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, scale=5, lines=1, max_lines=6, elem_id="msg-input")
                     send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
 
+    # ── 事件 ──
     def handle_login(email, password):
         db_email, nickname, error = do_login(email, password)
         if db_email:
