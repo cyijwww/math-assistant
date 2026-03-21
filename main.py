@@ -1,12 +1,37 @@
-# ── 修复 gradio_client bool bug ──────────────────────
+# ── 修复 gradio_client bool/schema bug + localhost 检查 ──
 try:
     import gradio_client.utils as _gcu
-    _orig = _gcu.get_type
+
+    _orig_get_type = _gcu.get_type
     def _safe_get_type(schema):
         if not isinstance(schema, (dict, str)):
             return str
-        return _orig(schema)
+        return _orig_get_type(schema)
     _gcu.get_type = _safe_get_type
+
+    _orig_json_schema = _gcu._json_schema_to_python_type
+    def _safe_json_schema(schema, defs=None):
+        if not isinstance(schema, dict):
+            return "str"
+        try:
+            return _orig_json_schema(schema, defs)
+        except Exception:
+            return "str"
+    _gcu._json_schema_to_python_type = _safe_json_schema
+
+except Exception:
+    pass
+
+try:
+    import gradio.networking as _gnet
+    _gnet.url_ok = lambda url: True
+except Exception:
+    pass
+
+try:
+    import gradio.utils as _gutils
+    if hasattr(_gutils, 'url_ok'):
+        _gutils.url_ok = lambda url: True
 except Exception:
     pass
 # ─────────────────────────────────────────────────────
@@ -113,30 +138,12 @@ def save_conversation(email, q, a):
     try: db_exec("INSERT INTO conversations (email,question,answer) VALUES (%s,%s,%s)", (email, q, a))
     except Exception as e: print(f"Save error: {e}")
 
-def load_history(email):
-    try:
-        rows = db_exec("SELECT question,answer FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50", (email,), fetch="all") or []
-        return [{"role":"user","content":q} if i%2==0 else {"role":"assistant","content":a}
-                for q,a in reversed(rows) for i in range(2)]
-    except: return []
-
 def load_history_chat(email):
     try:
         rows = db_exec("SELECT question,answer FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50", (email,), fetch="all") or []
         result = []
         for q, a in reversed(rows):
             result.append({"role":"user","content":q})
-            result.append({"role":"assistant","content":a})
-        return result
-    except: return []
-
-def load_history_display(email):
-    try:
-        rows = db_exec("SELECT question,answer,created_at FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50", (email,), fetch="all") or []
-        result = []
-        for q, a, t in rows:
-            ts = t.strftime("%Y-%m-%d %H:%M") if t else ""
-            result.append({"role":"user","content":f"[{ts}] {q}"})
             result.append({"role":"assistant","content":a})
         return result
     except: return []
@@ -206,7 +213,6 @@ footer,.built-with { display:none !important; }
 
 .welcome-wrap { text-align:center; padding:20px 16px; }
 
-/* 侧边栏 */
 #pig-drawer {
     position: fixed; top: 0; left: 0;
     width: 280px; max-width: 80vw; height: 100vh;
@@ -303,7 +309,6 @@ function pigClearAll() { if(!confirm('确定清空？'))return; clickById('_pclr
 function pigClearChat(){ clickById('_pcc'); }
 function pigLogout()   { clickById('_plo'); }
 
-// 监听数据更新
 new MutationObserver(function(ms){
     ms.forEach(function(m){
         m.addedNodes.forEach(function(n){
@@ -332,7 +337,6 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     logged_in_user = gr.State(None)
     logged_in_nick = gr.State(None)
 
-    # ── 登录页 ──
     with gr.Column(elem_id="auth-box", visible=True) as auth_page:
         gr.HTML("""
         <div style="text-align:center;margin-bottom:24px;">
@@ -355,12 +359,10 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                 reg_msg     = gr.HTML(elem_id="auth-msg")
                 gr.HTML("<p style='text-align:center;color:#aaa;font-size:12px;margin-top:8px;'>注册成功后请点击上方登录标签</p>")
 
-    # ── 聊天页 ──
     with gr.Column(visible=False) as chat_page:
         nav_html     = gr.HTML(NAV_AND_DRAWER)
         data_updater = gr.HTML("")
 
-        # 隐藏代理按钮
         _pdel = gr.Button("d",  visible=False, elem_id="_pdel")
         _pclr = gr.Button("c",  visible=False, elem_id="_pclr")
         _pcc  = gr.Button("cc", visible=False, elem_id="_pcc")
@@ -389,7 +391,6 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
                     msg  = gr.Textbox(placeholder="向pig提问任何数学问题...", show_label=False, scale=5, lines=1, max_lines=6, elem_id="msg-input")
                     send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
 
-    # ── 事件 ──
     def handle_login(email, password):
         db_email, nickname, error = do_login(email, password)
         if db_email:
