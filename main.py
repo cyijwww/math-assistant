@@ -163,21 +163,21 @@ def web_search(query):
         return "\n\n【搜索结果】\n" + "\n\n".join([f"来源：{r['title']}\n{r['body']}" for r in results])
     except: return ""
 
-def fix_latex(text):
-    for s in ["\\(","\\)","\\[","\\]","$$","$"]: text = text.replace(s, "")
-    return text
-
 def ask_ai(message, history, deep_think, use_search, nickname):
     model = "deepseek-reasoner" if deep_think else "deepseek-chat"
     search_ctx = web_search(message) if use_search else ""
     n = len([m for m in history if m["role"]=="user"])
     level = "这是第一次提问，请友好介绍自己。" if n==0 else ("请耐心详细解释。" if n<5 else "可以适当加深难度。")
     name_str = f"同学叫【{nickname}】，请称呼他/她。" if nickname else ""
-    sys_p = f"你叫pig，是专业的大学数学辅导老师。{name_str}{level}\n步骤清晰、先思路后计算、最后总结、态度亲切。"
+    sys_p = (
+        f"你叫pig，是专业的大学数学辅导老师。{name_str}{level}\n"
+        "步骤清晰、先思路后计算、最后总结、态度亲切。\n"
+        "数学公式请使用 LaTeX 格式：行内公式用 $...$ ，独立公式用 $$...$$。"
+    )
     if search_ctx: sys_p += f"\n\n参考搜索结果：{search_ctx}"
     msgs = [{"role":"system","content":sys_p}] + history + [{"role":"user","content":message}]
     resp = client.chat.completions.create(model=model, messages=msgs, max_tokens=4000, temperature=0.3)
-    return fix_latex(resp.choices[0].message.content)
+    return resp.choices[0].message.content
 
 def respond(message, chat_history, deep, search, current_user, nickname):
     if not message.strip():
@@ -193,8 +193,6 @@ def respond(message, chat_history, deep, search, current_user, nickname):
 
 CSS = """
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
-/* 整体背景 */
 body, .gradio-container {
     background: #f7f7f5 !important;
     font-family: Georgia, serif !important;
@@ -203,7 +201,7 @@ body, .gradio-container {
 }
 footer, .built-with { display: none !important; }
 
-/* ── 隐藏代理按钮 ── */
+/* 隐藏代理按钮 */
 #proxy-col {
     position: fixed !important;
     left: -9999px !important; top: 0 !important;
@@ -236,14 +234,7 @@ footer, .built-with { display: none !important; }
 #auth-submit:hover { background: #b85a38 !important; }
 #auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
 
-/* ══════════════════════════════════════
-   聊天页固定布局核心
-   顶栏: position fixed top
-   底栏: position fixed bottom
-   中间: margin 撑开，overflow 滚动
-   ══════════════════════════════════════ */
-
-/* 顶部导航栏 — 固定在顶部 */
+/* ── 顶栏固定 ── */
 #fixed-topbar {
     position: fixed !important;
     top: 0 !important; left: 0 !important; right: 0 !important;
@@ -256,30 +247,8 @@ footer, .built-with { display: none !important; }
     border-bottom: 1px solid #e5e5e0 !important;
     gap: 4px !important;
 }
-#btn-menu, #btn-clearchat {
-    background: none !important; border: none !important;
-    border-radius: 8px !important; font-size: 20px !important;
-    padding: 6px 9px !important; min-width: unset !important;
-    width: auto !important; color: #444 !important;
-    box-shadow: none !important; line-height: 1 !important;
-    flex-shrink: 0 !important; height: 38px !important;
-}
-#btn-menu:hover, #btn-clearchat:hover { background: #e8e8e4 !important; }
-#btn-logout {
-    background: none !important; border: 1px solid #ddd !important;
-    border-radius: 8px !important; font-size: 13px !important;
-    padding: 5px 12px !important; color: #888 !important;
-    min-width: unset !important; box-shadow: none !important;
-    flex-shrink: 0 !important; height: 38px !important;
-}
-#btn-logout:hover { background: #f0f0ee !important; }
-#topbar-title-div {
-    flex: 1; text-align: center;
-    font-size: 15px; font-weight: 600; color: #1a1a1a;
-    pointer-events: none;
-}
 
-/* 底部输入区 — 固定在底部 */
+/* ── 底栏固定 ── */
 #fixed-bottom {
     position: fixed !important;
     bottom: 0 !important; left: 0 !important; right: 0 !important;
@@ -294,6 +263,7 @@ footer, .built-with { display: none !important; }
     border-radius: 18px;
     padding: 10px 12px 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    margin-top: 6px;
 }
 #msg-input textarea {
     background: transparent !important; border: none !important;
@@ -310,14 +280,16 @@ footer, .built-with { display: none !important; }
     color: white !important; font-size: 20px !important;
 }
 
-/* 中间聊天区 — 上下留出固定栏高度 */
+/* ── 中间聊天区 ── */
 #chat-middle {
     margin-top: 52px !important;
-    margin-bottom: 140px !important;
-    overflow-y: auto !important;
-    padding: 0 !important;
+    margin-bottom: 150px !important;
 }
-#chatbot { background: transparent !important; border: none !important; }
+#chatbot {
+    background: transparent !important;
+    border: none !important;
+    min-height: 300px !important;
+}
 
 .welcome-wrap { text-align: center; padding: 20px 16px 8px; }
 
@@ -342,36 +314,34 @@ footer, .built-with { display: none !important; }
 
 FIXED_TOPBAR_HTML = """
 <div id="fixed-topbar">
-  <button id="btn-menu-js" onclick="window.pigOpen()"
+  <button onclick="window.pigOpen()"
     style="background:none;border:none;border-radius:8px;font-size:22px;
            padding:6px 9px;cursor:pointer;color:#444;line-height:1;height:38px;">☰</button>
-  <div id="topbar-title-div">📐 pig</div>
-  <button id="btn-clearchat-js"
+  <div style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#1a1a1a;pointer-events:none;">📐 pig</div>
+  <button id="tb-clearchat"
     style="background:none;border:none;border-radius:8px;font-size:20px;
            padding:6px 9px;cursor:pointer;color:#444;line-height:1;height:38px;">🗑</button>
-  <button id="btn-logout-js"
+  <button id="tb-logout"
     style="background:none;border:1px solid #ddd;border-radius:8px;font-size:13px;
            padding:5px 12px;cursor:pointer;color:#888;height:38px;">退出</button>
 </div>
-
 <script>
-// 顶栏按钮 → 触发 Gradio 按钮
 document.addEventListener('click', function(e) {
-    function clickGr(id) {
+    function gr(id) {
         var c = document.getElementById(id);
         if (!c) return;
         var b = c.querySelector('button');
         if (b) b.click();
     }
-    if (e.target.id === 'btn-clearchat-js') clickGr('gr-clearchat');
-    if (e.target.id === 'btn-logout-js')    clickGr('gr-logout');
+    if (e.target.id === 'tb-clearchat') gr('proxy-cc');
+    if (e.target.id === 'tb-logout')    gr('proxy-lo');
     if (e.target.id === 'js-del') {
-        clickGr('proxy-del');
+        gr('proxy-del');
         setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
     }
     if (e.target.id === 'js-clr') {
         if (!confirm('确定清空全部？')) return;
-        clickGr('proxy-clr');
+        gr('proxy-clr');
         setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
     }
 });
@@ -477,18 +447,17 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     # ── 聊天页 ──
     with gr.Column(visible=False) as chat_page:
-        # 侧边栏 HTML
         gr.HTML(DRAWER_HTML)
         data_upd = gr.HTML("")
 
         # 代理按钮（屏幕外）
         with gr.Column(elem_id="proxy-col"):
-            btn_del     = gr.Button("d", elem_id="proxy-del")
-            btn_clr     = gr.Button("c", elem_id="proxy-clr")
-            btn_logout  = gr.Button("lo", elem_id="gr-logout")
-            btn_cc      = gr.Button("cc", elem_id="gr-clearchat")
+            btn_del    = gr.Button("d",  elem_id="proxy-del")
+            btn_clr    = gr.Button("c",  elem_id="proxy-clr")
+            btn_logout = gr.Button("lo", elem_id="proxy-lo")
+            btn_cc     = gr.Button("cc", elem_id="proxy-cc")
 
-        # 固定顶栏（纯 HTML，按钮触发 Gradio 代理按钮）
+        # 固定顶栏
         gr.HTML(FIXED_TOPBAR_HTML)
 
         # 中间滚动区
@@ -504,12 +473,22 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
               </p>
             </div>""")
 
+            # ✅ 关键：开启 LaTeX 渲染
             chatbot = gr.Chatbot(
-                elem_id="chatbot", show_label=False,
-                height=500, type="messages", bubble_full_width=False
+                elem_id="chatbot",
+                show_label=False,
+                height=500,
+                type="messages",
+                bubble_full_width=False,
+                latex_delimiters=[
+                    {"left": "$$", "right": "$$", "display": True},
+                    {"left": "$",  "right": "$",  "display": False},
+                    {"left": "\\[", "right": "\\]", "display": True},
+                    {"left": "\\(", "right": "\\)", "display": False},
+                ]
             )
 
-        # 固定底部输入区（纯 HTML 包裹，Gradio 组件在其中）
+        # 固定底部
         with gr.Column(elem_id="fixed-bottom"):
             with gr.Row():
                 deep_think = gr.Checkbox(label="🧠 深度思考（R1）", value=False, scale=1)
