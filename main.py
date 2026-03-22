@@ -201,12 +201,12 @@ body, .gradio-container {
 }
 footer, .built-with { display: none !important; }
 
-/* 隐藏代理按钮 */
+/* 隐藏代理按钮 — 移到屏幕外但保留点击能力 */
 #proxy-col {
     position: fixed !important;
     left: -9999px !important; top: 0 !important;
     width: 1px !important; height: 1px !important;
-    overflow: hidden !important; pointer-events: none !important;
+    overflow: hidden !important;
 }
 
 /* ── 登录卡片 ── */
@@ -220,18 +220,18 @@ footer, .built-with { display: none !important; }
     border: none !important;
 }
 #auth-box button[role="tab"][aria-selected="true"] {
-    color: #cc6a45 !important;
-    border-bottom: 2px solid #cc6a45 !important;
+    color: #2d7dd2 !important;
+    border-bottom: 2px solid #2d7dd2 !important;
     font-weight: 600 !important;
 }
 #auth-submit {
-    background: #cc6a45 !important;
+    background: #2d7dd2 !important;
     border-radius: 12px !important; color: white !important;
     font-size: 16px !important; font-weight: 600 !important;
     width: 100% !important; padding: 12px !important;
     border: none !important; letter-spacing: 2px !important;
 }
-#auth-submit:hover { background: #b85a38 !important; }
+#auth-submit:hover { background: #1a5fa8 !important; }
 #auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
 
 /* ── 顶栏固定 ── */
@@ -273,7 +273,7 @@ footer, .built-with { display: none !important; }
 #msg-input .wrap { border: none !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; }
 #msg-input { border: none !important; flex: 1 !important; }
 #send-btn {
-    background: #cc6a45 !important; border: none !important;
+    background: #2d7dd2 !important; border: none !important;
     border-radius: 10px !important;
     width: 40px !important; height: 40px !important;
     min-width: 40px !important; padding: 0 !important;
@@ -359,7 +359,7 @@ DRAWER_HTML = """
     <button id="js-del" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;font-size:13px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
     <button id="js-clr" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e88;font-size:13px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
   </div>
-  <div id="pig-status" style="padding:6px 16px;font-size:12px;color:#cc6a45;min-height:22px;"></div>
+  <div id="pig-status" style="padding:6px 16px;font-size:12px;color:#2d7dd2;min-height:22px;"></div>
   <div id="pig-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
 </div>
 <script>
@@ -425,7 +425,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     with gr.Column(elem_id="auth-box", visible=True) as auth_page:
         gr.HTML("""
         <div style="text-align:center;margin-bottom:28px;">
-          <div style="width:64px;height:64px;background:#cc6a45;border-radius:18px;
+          <div style="width:64px;height:64px;background:#2d7dd2;border-radius:18px;
                       display:inline-flex;align-items:center;justify-content:center;font-size:30px;
                       box-shadow:0 4px 12px rgba(204,106,69,0.3);">📐</div>
           <h2 style="font-size:24px;font-weight:700;color:#1a1a1a;margin-top:14px;">pig</h2>
@@ -464,7 +464,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         with gr.Column(elem_id="chat-middle"):
             gr.HTML("""
             <div class="welcome-wrap">
-              <div style="width:52px;height:52px;background:#cc6a45;border-radius:14px;
+              <div style="width:52px;height:52px;background:#2d7dd2;border-radius:14px;
                   display:inline-flex;align-items:center;justify-content:center;font-size:24px;
                   box-shadow:0 4px 12px rgba(204,106,69,0.3);margin-bottom:10px;">📐</div>
               <h1 style="font-size:20px;font-weight:600;color:#1a1a1a;margin:0 0 6px;">你好，我是pig</h1>
