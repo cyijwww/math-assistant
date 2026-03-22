@@ -201,12 +201,50 @@ body, .gradio-container {
 }
 footer, .built-with { display: none !important; }
 
-/* 隐藏代理按钮 — 移到屏幕外但保留点击能力 */
+/* lo/cc 代理按钮屏幕外 */
 #proxy-col {
     position: fixed !important;
     left: -9999px !important; top: 0 !important;
     width: 1px !important; height: 1px !important;
     overflow: hidden !important;
+}
+
+/* 删除/清空按钮：覆盖在侧边栏内部 */
+#drawer-btn-row {
+    position: fixed !important;
+    top: 120px !important;
+    left: 0 !important;
+    width: 280px !important;
+    max-width: 80vw !important;
+    z-index: 10000 !important;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+    display: none !important;
+    background: #fff !important;
+    border-bottom: 1px solid #e5e5e0 !important;
+}
+#drawer-btn-row.drawer-open {
+    display: flex !important;
+}
+#proxy-del {
+    flex: 1 !important;
+    padding: 7px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    color: #333 !important;
+    box-shadow: none !important;
+}
+#proxy-clr {
+    flex: 1 !important;
+    padding: 7px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    background: #fff !important;
+    border: 1px solid #e88 !important;
+    color: #c44 !important;
+    box-shadow: none !important;
 }
 
 /* ── 登录卡片 ── */
@@ -335,15 +373,7 @@ document.addEventListener('click', function(e) {
     }
     if (e.target.id === 'tb-clearchat') gr('proxy-cc');
     if (e.target.id === 'tb-logout')    gr('proxy-lo');
-    if (e.target.id === 'js-del') {
-        gr('proxy-del');
-        setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
-    }
-    if (e.target.id === 'js-clr') {
-        if (!confirm('确定清空全部？')) return;
-        gr('proxy-clr');
-        setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
-    }
+
 });
 </script>
 """
@@ -355,9 +385,8 @@ DRAWER_HTML = """
     <span style="font-size:15px;font-weight:600;">📋 历史提问</span>
     <button onclick="pigClose()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">✕</button>
   </div>
-  <div style="padding:10px 12px;display:flex;gap:8px;border-bottom:1px solid #e5e5e0;">
-    <button id="js-del" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;font-size:13px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
-    <button id="js-clr" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e88;font-size:13px;cursor:pointer;background:#fff;color:#c44;">⚠️ 清空全部</button>
+  <div style="padding:10px 12px;border-bottom:1px solid #e5e5e0;min-height:52px;">
+    <!-- 删除/清空按钮由下方 Gradio 组件覆盖此区域 -->
   </div>
   <div id="pig-status" style="padding:6px 16px;font-size:12px;color:#2d7dd2;min-height:22px;"></div>
   <div id="pig-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
@@ -367,11 +396,15 @@ window._pigData = [];
 function pigClose() {
     document.getElementById('pig-drawer').classList.remove('open');
     document.getElementById('pig-overlay').classList.remove('open');
+    var r = document.getElementById('drawer-btn-row');
+    if (r) r.classList.remove('drawer-open');
 }
 window.pigOpen = function() {
     pigRender();
     document.getElementById('pig-drawer').classList.add('open');
     document.getElementById('pig-overlay').classList.add('open');
+    var r = document.getElementById('drawer-btn-row');
+    if (r) r.classList.add('drawer-open');
 };
 window.pigRender = function() {
     var el = document.getElementById('pig-list');
@@ -450,12 +483,15 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         gr.HTML(DRAWER_HTML)
         data_upd = gr.HTML("")
 
-        # 代理按钮（屏幕外）
+        # lo/cc 代理按钮（屏幕外）
         with gr.Column(elem_id="proxy-col"):
-            btn_del    = gr.Button("d",  elem_id="proxy-del")
-            btn_clr    = gr.Button("c",  elem_id="proxy-clr")
             btn_logout = gr.Button("lo", elem_id="proxy-lo")
             btn_cc     = gr.Button("cc", elem_id="proxy-cc")
+
+        # 删除/清空：真实 Gradio 按钮放侧边栏下方（CSS 绝对定位覆盖到侧边栏）
+        with gr.Row(elem_id="drawer-btn-row"):
+            btn_del = gr.Button("🗑 删除最近一条", elem_id="proxy-del", variant="secondary")
+            btn_clr = gr.Button("⚠️ 清空全部",    elem_id="proxy-clr", variant="stop")
 
         # 固定顶栏
         gr.HTML(FIXED_TOPBAR_HTML)
