@@ -386,10 +386,8 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     # ── 聊天页 ──
     with gr.Column(visible=False) as chat_page:
 
-        # 侧边栏遮罩（点击关闭）
-        with gr.Column(visible=False, elem_id="sidebar-overlay") as overlay:
-            btn_overlay_close = gr.Button("", elem_id="overlay-close-btn",
-                                          visible=False)  # 不可见，用 JS 点击遮罩触发关闭
+        # 侧边栏遮罩（纯 HTML 点击关闭）
+        gr.HTML('<div id="sidebar-overlay-div" onclick="var b=document.querySelector(\'#btn-close-sidebar button\');if(b)b.click();" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:9998;"></div>')
 
         # 侧边栏本体（Gradio Column）
         with gr.Column(visible=False, elem_id="sidebar") as sidebar:
@@ -485,12 +483,13 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     reg_btn.click(handle_register,   [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
 
     btn_logout.click(handle_logout, [],
-                     [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, sidebar, overlay])
+                     [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, sidebar])
     btn_clearchat.click(lambda: [], [], [chatbot])
 
-    btn_menu.click(open_sidebar,  [logged_in_user], [sidebar, overlay, history_html])
-    btn_close_sidebar.click(close_sidebar, [], [sidebar, overlay])
-    overlay.click(close_sidebar, [], [sidebar, overlay])
+    btn_menu.click(open_sidebar,  [logged_in_user], [sidebar, history_html],
+                  js="() => { var d=document.getElementById('sidebar-overlay-div'); if(d) d.style.display='block'; }")
+    btn_close_sidebar.click(close_sidebar, [], [sidebar],
+                          js="() => { var d=document.getElementById('sidebar-overlay-div'); if(d) d.style.display='none'; }")
 
     btn_del.click(handle_del, [logged_in_user], [chatbot, history_html])
     btn_clr.click(handle_clr, [logged_in_user], [chatbot, history_html])
