@@ -7,7 +7,6 @@ try:
             return str
         return _orig_get_type(schema)
     _gcu.get_type = _safe_get_type
-
     _orig_js = _gcu._json_schema_to_python_type
     def _safe_js(schema, defs=None):
         if not isinstance(schema, dict):
@@ -19,7 +18,6 @@ try:
     _gcu._json_schema_to_python_type = _safe_js
 except Exception:
     pass
-
 try:
     import gradio.networking as _gnet
     _gnet.url_ok = lambda url: True
@@ -142,6 +140,24 @@ def load_history(email):
         return result
     except: return []
 
+def load_history_html(email):
+    """生成侧边栏历史记录 HTML"""
+    try:
+        rows = db_exec("SELECT question,created_at FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50", (email,), fetch="all") or []
+        if not rows:
+            return "<div style='padding:24px;text-align:center;color:#aaa;font-size:13px;'>暂无历史记录</div>"
+        items = []
+        for q, t in rows:
+            ts = t.strftime("%m-%d %H:%M") if t else ""
+            q_short = q[:30] + "…" if len(q) > 30 else q
+            items.append(f"""<div style='padding:12px 16px;border-bottom:1px solid #f0f0ee;'>
+  <div style='font-size:11px;color:#aaa;margin-bottom:3px;'>{ts}</div>
+  <div style='font-size:13px;color:#333;'>{q_short}</div>
+</div>""")
+        return "".join(items)
+    except:
+        return "<div style='padding:16px;color:#aaa;'>加载失败</div>"
+
 def del_last(email):
     try: db_exec("DELETE FROM conversations WHERE id=(SELECT id FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 1)", (email,))
     except: pass
@@ -172,7 +188,7 @@ def ask_ai(message, history, deep_think, use_search, nickname):
     sys_p = (
         f"你叫pig，是专业的大学数学辅导老师。{name_str}{level}\n"
         "步骤清晰、先思路后计算、最后总结、态度亲切。\n"
-        "数学公式请使用 LaTeX 格式：行内公式用 $...$ ，独立公式用 $$...$$。"
+        "数学公式请使用 LaTeX 格式：行内公式用 $...$，独立公式用 $$...$$。"
     )
     if search_ctx: sys_p += f"\n\n参考搜索结果：{search_ctx}"
     msgs = [{"role":"system","content":sys_p}] + history + [{"role":"user","content":message}]
@@ -201,52 +217,6 @@ body, .gradio-container {
 }
 footer, .built-with { display: none !important; }
 
-/* lo/cc 代理按钮屏幕外 */
-#proxy-col {
-    position: fixed !important;
-    left: -9999px !important; top: 0 !important;
-    width: 1px !important; height: 1px !important;
-    overflow: hidden !important;
-}
-
-/* 删除/清空按钮：覆盖在侧边栏内部 */
-#drawer-btn-row {
-    position: fixed !important;
-    top: 120px !important;
-    left: 0 !important;
-    width: 280px !important;
-    max-width: 80vw !important;
-    z-index: 10000 !important;
-    padding: 10px 12px !important;
-    gap: 8px !important;
-    display: none !important;
-    background: #fff !important;
-    border-bottom: 1px solid #e5e5e0 !important;
-}
-#drawer-btn-row.drawer-open {
-    display: flex !important;
-}
-#proxy-del {
-    flex: 1 !important;
-    padding: 7px !important;
-    border-radius: 8px !important;
-    font-size: 12px !important;
-    background: #fff !important;
-    border: 1px solid #ddd !important;
-    color: #333 !important;
-    box-shadow: none !important;
-}
-#proxy-clr {
-    flex: 1 !important;
-    padding: 7px !important;
-    border-radius: 8px !important;
-    font-size: 12px !important;
-    background: #fff !important;
-    border: 1px solid #e88 !important;
-    color: #c44 !important;
-    box-shadow: none !important;
-}
-
 /* ── 登录卡片 ── */
 #auth-box {
     max-width: 420px !important;
@@ -272,8 +242,49 @@ footer, .built-with { display: none !important; }
 #auth-submit:hover { background: #1a5fa8 !important; }
 #auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
 
+/* ── 侧边栏（Gradio Column）── */
+#sidebar {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 290px !important; height: 100vh !important;
+    background: #fff !important;
+    z-index: 9999 !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.15) !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+#sidebar-overlay {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 100vw !important; height: 100vh !important;
+    background: rgba(0,0,0,0.4) !important;
+    z-index: 9998 !important;
+}
+#btn-close-sidebar, #btn-del, #btn-clr {
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    padding: 7px 12px !important;
+    box-shadow: none !important;
+    min-width: unset !important;
+}
+#btn-close-sidebar {
+    background: none !important; border: none !important;
+    font-size: 20px !important; color: #888 !important;
+}
+#btn-del {
+    background: #fff !important; border: 1px solid #ddd !important;
+    color: #333 !important; flex: 1 !important;
+}
+#btn-clr {
+    background: #fff !important; border: 1px solid #e88 !important;
+    color: #c44 !important; flex: 1 !important;
+}
+#btn-del:hover { background: #f5f5f5 !important; }
+#btn-clr:hover { background: #fff0f0 !important; }
+
 /* ── 顶栏固定 ── */
-#fixed-topbar {
+#topbar {
     position: fixed !important;
     top: 0 !important; left: 0 !important; right: 0 !important;
     z-index: 1000 !important;
@@ -285,9 +296,24 @@ footer, .built-with { display: none !important; }
     border-bottom: 1px solid #e5e5e0 !important;
     gap: 4px !important;
 }
+#btn-menu, #btn-clearchat {
+    background: none !important; border: none !important;
+    border-radius: 8px !important; font-size: 20px !important;
+    padding: 6px 9px !important; min-width: unset !important;
+    color: #444 !important; box-shadow: none !important;
+    line-height: 1 !important; height: 38px !important;
+}
+#btn-menu:hover, #btn-clearchat:hover { background: #e8e8e4 !important; }
+#btn-logout {
+    background: none !important; border: 1px solid #ddd !important;
+    border-radius: 8px !important; font-size: 13px !important;
+    padding: 5px 12px !important; color: #888 !important;
+    min-width: unset !important; box-shadow: none !important;
+    height: 38px !important;
+}
 
 /* ── 底栏固定 ── */
-#fixed-bottom {
+#bottombar {
     position: fixed !important;
     bottom: 0 !important; left: 0 !important; right: 0 !important;
     z-index: 1000 !important;
@@ -318,141 +344,20 @@ footer, .built-with { display: none !important; }
     color: white !important; font-size: 20px !important;
 }
 
-/* ── 中间聊天区 ── */
+/* ── 中간 채팅 영역 ── */
 #chat-middle {
     margin-top: 52px !important;
     margin-bottom: 150px !important;
 }
-#chatbot {
-    background: transparent !important;
-    border: none !important;
-    min-height: 300px !important;
-}
-
+#chatbot { background: transparent !important; border: none !important; }
 .welcome-wrap { text-align: center; padding: 20px 16px 8px; }
-
-/* ── 侧边栏 ── */
-#pig-drawer {
-    position: fixed; top: 0; left: 0;
-    width: 280px; max-width: 80vw; height: 100vh;
-    background: #fff; z-index: 9999;
-    transform: translateX(-100%);
-    transition: transform 0.28s ease;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.15);
-    display: flex; flex-direction: column;
-}
-#pig-drawer.open { transform: translateX(0); }
-#pig-overlay {
-    display: none; position: fixed; top:0; left:0;
-    width:100vw; height:100vh;
-    background: rgba(0,0,0,0.4); z-index: 9998;
-}
-#pig-overlay.open { display: block; }
 """
-
-FIXED_TOPBAR_HTML = """
-<div id="fixed-topbar">
-  <button onclick="window.pigOpen()"
-    style="background:none;border:none;border-radius:8px;font-size:22px;
-           padding:6px 9px;cursor:pointer;color:#444;line-height:1;height:38px;">☰</button>
-  <div style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#1a1a1a;pointer-events:none;">📐 pig</div>
-  <button id="tb-clearchat"
-    style="background:none;border:none;border-radius:8px;font-size:20px;
-           padding:6px 9px;cursor:pointer;color:#444;line-height:1;height:38px;">🗑</button>
-  <button id="tb-logout"
-    style="background:none;border:1px solid #ddd;border-radius:8px;font-size:13px;
-           padding:5px 12px;cursor:pointer;color:#888;height:38px;">退出</button>
-</div>
-<script>
-document.addEventListener('click', function(e) {
-    function gr(id) {
-        var c = document.getElementById(id);
-        if (!c) return;
-        var b = c.querySelector('button');
-        if (b) b.click();
-    }
-    if (e.target.id === 'tb-clearchat') gr('proxy-cc');
-    if (e.target.id === 'tb-logout')    gr('proxy-lo');
-
-});
-</script>
-"""
-
-DRAWER_HTML = """
-<div id="pig-overlay" onclick="pigClose()"></div>
-<div id="pig-drawer">
-  <div style="padding:16px;border-bottom:1px solid #e5e5e0;display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:15px;font-weight:600;">📋 历史提问</span>
-    <button onclick="pigClose()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">✕</button>
-  </div>
-  <div style="padding:10px 12px;border-bottom:1px solid #e5e5e0;min-height:52px;">
-    <!-- 删除/清空按钮由下方 Gradio 组件覆盖此区域 -->
-  </div>
-  <div id="pig-status" style="padding:6px 16px;font-size:12px;color:#2d7dd2;min-height:22px;"></div>
-  <div id="pig-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
-</div>
-<script>
-window._pigData = [];
-function pigClose() {
-    document.getElementById('pig-drawer').classList.remove('open');
-    document.getElementById('pig-overlay').classList.remove('open');
-    var r = document.getElementById('drawer-btn-row');
-    if (r) r.classList.remove('drawer-open');
-}
-window.pigOpen = function() {
-    pigRender();
-    document.getElementById('pig-drawer').classList.add('open');
-    document.getElementById('pig-overlay').classList.add('open');
-    var r = document.getElementById('drawer-btn-row');
-    if (r) r.classList.add('drawer-open');
-};
-window.pigRender = function() {
-    var el = document.getElementById('pig-list');
-    if (!el) return;
-    var items = window._pigData || [];
-    if (!items.length) {
-        el.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px;">暂无历史记录</div>';
-        return;
-    }
-    el.innerHTML = items.map(function(it) {
-        var m = it[0].match(/^\x5B(.+?)\x5D (.+)$/);
-        return '<div style="padding:12px 16px;border-bottom:1px solid #f0f0ee;">'
-            +'<div style="font-size:11px;color:#aaa;margin-bottom:3px;">'+(m?m[1]:'')+'</div>'
-            +'<div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;">'+(m?m[2]:it[0])+'</div>'
-            +'</div>';
-    }).join('');
-};
-function pigStatus(msg) {
-    var el = document.getElementById('pig-status');
-    if (el) { el.innerText = msg; setTimeout(function(){el.innerText='';},2000); }
-}
-new MutationObserver(function(ms){
-    ms.forEach(function(m){
-        m.addedNodes.forEach(function(n){
-            if (n.nodeType===1 && n.dataset && n.dataset.pu) pigRender();
-        });
-    });
-}).observe(document.body,{childList:true,subtree:true});
-</script>
-"""
-
-def make_js(email):
-    items = []
-    if email:
-        try:
-            rows = db_exec("SELECT question,created_at FROM conversations WHERE email=%s ORDER BY created_at DESC LIMIT 50",(email,),fetch="all") or []
-            for q, t in rows:
-                ts = t.strftime("%Y-%m-%d %H:%M") if t else ""
-                items.append([f"[{ts}] {q}", ""])
-        except: pass
-    data = json.dumps(items, ensure_ascii=False)
-    uid = secrets.token_hex(4)
-    return f'<span data-pu="1" id="pu{uid}" style="display:none"></span><script>window._pigData={data};</script>'
 
 with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     logged_in_user = gr.State(None)
     logged_in_nick = gr.State(None)
+    sidebar_open   = gr.State(False)
 
     # ── 登录页 ──
     with gr.Column(elem_id="auth-box", visible=True) as auth_page:
@@ -460,7 +365,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         <div style="text-align:center;margin-bottom:28px;">
           <div style="width:64px;height:64px;background:#2d7dd2;border-radius:18px;
                       display:inline-flex;align-items:center;justify-content:center;font-size:30px;
-                      box-shadow:0 4px 12px rgba(204,106,69,0.3);">📐</div>
+                      box-shadow:0 4px 12px rgba(45,125,210,0.3);">📐</div>
           <h2 style="font-size:24px;font-weight:700;color:#1a1a1a;margin-top:14px;">pig</h2>
           <p style="color:#999;font-size:13px;margin-top:6px;">你的专属数学辅导老师</p>
         </div>""")
@@ -480,62 +385,62 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     # ── 聊天页 ──
     with gr.Column(visible=False) as chat_page:
-        gr.HTML(DRAWER_HTML)
-        data_upd = gr.HTML("")
 
-        # lo/cc 代理按钮（屏幕外）
-        with gr.Column(elem_id="proxy-col"):
-            btn_logout = gr.Button("lo", elem_id="proxy-lo")
-            btn_cc     = gr.Button("cc", elem_id="proxy-cc")
+        # 侧边栏遮罩（点击关闭）
+        with gr.Column(visible=False, elem_id="sidebar-overlay") as overlay:
+            btn_overlay_close = gr.Button("", elem_id="overlay-close-btn",
+                                          visible=False)  # 不可见，用 JS 点击遮罩触发关闭
 
-        # 删除/清空：真实 Gradio 按钮放侧边栏下方（CSS 绝对定位覆盖到侧边栏）
-        with gr.Row(elem_id="drawer-btn-row"):
-            btn_del = gr.Button("🗑 删除最近一条", elem_id="proxy-del", variant="secondary")
-            btn_clr = gr.Button("⚠️ 清空全部",    elem_id="proxy-clr", variant="stop")
+        # 侧边栏本体（Gradio Column）
+        with gr.Column(visible=False, elem_id="sidebar") as sidebar:
+            with gr.Row():
+                gr.HTML('<div style="font-size:15px;font-weight:600;padding:16px 0 16px 16px;flex:1;">📋 历史提问</div>')
+                btn_close_sidebar = gr.Button("✕", elem_id="btn-close-sidebar", scale=0)
+            with gr.Row():
+                btn_del = gr.Button("🗑 删除最近一条", elem_id="btn-del", scale=1)
+                btn_clr = gr.Button("⚠️ 清空全部",    elem_id="btn-clr", scale=1)
+            history_html = gr.HTML("<div style='padding:24px;text-align:center;color:#aaa;font-size:13px;'>暂无历史记录</div>")
 
-        # 固定顶栏
-        gr.HTML(FIXED_TOPBAR_HTML)
+        # 顶部导航栏
+        with gr.Row(elem_id="topbar"):
+            btn_menu      = gr.Button("☰",  elem_id="btn-menu",      scale=0)
+            gr.HTML('<div style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#1a1a1a;pointer-events:none;">📐 pig</div>')
+            btn_clearchat = gr.Button("🗑",  elem_id="btn-clearchat", scale=0)
+            btn_logout    = gr.Button("退出", elem_id="btn-logout",   scale=0)
 
-        # 中间滚动区
+        # 中间聊天区
         with gr.Column(elem_id="chat-middle"):
             gr.HTML("""
             <div class="welcome-wrap">
               <div style="width:52px;height:52px;background:#2d7dd2;border-radius:14px;
                   display:inline-flex;align-items:center;justify-content:center;font-size:24px;
-                  box-shadow:0 4px 12px rgba(204,106,69,0.3);margin-bottom:10px;">📐</div>
+                  box-shadow:0 4px 12px rgba(45,125,210,0.3);margin-bottom:10px;">📐</div>
               <h1 style="font-size:20px;font-weight:600;color:#1a1a1a;margin:0 0 6px;">你好，我是pig</h1>
               <p style="font-size:13px;color:#888;margin:0;line-height:1.8;">
                 你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
               </p>
             </div>""")
-
-            # ✅ 关键：开启 LaTeX 渲染
             chatbot = gr.Chatbot(
-                elem_id="chatbot",
-                show_label=False,
-                height=500,
-                type="messages",
-                bubble_full_width=False,
+                elem_id="chatbot", show_label=False,
+                height=500, type="messages", bubble_full_width=False,
                 latex_delimiters=[
-                    {"left": "$$", "right": "$$", "display": True},
-                    {"left": "$",  "right": "$",  "display": False},
+                    {"left": "$$",  "right": "$$",  "display": True},
+                    {"left": "$",   "right": "$",   "display": False},
                     {"left": "\\[", "right": "\\]", "display": True},
                     {"left": "\\(", "right": "\\)", "display": False},
                 ]
             )
 
-        # 固定底部
-        with gr.Column(elem_id="fixed-bottom"):
+        # 底部输入区
+        with gr.Column(elem_id="bottombar"):
             with gr.Row():
                 deep_think = gr.Checkbox(label="🧠 深度思考（R1）", value=False, scale=1)
                 use_search = gr.Checkbox(label="🔍 智能搜索",       value=False, scale=1)
             with gr.Column(elem_classes="input-inner"):
                 with gr.Row():
-                    msg  = gr.Textbox(
-                        placeholder="向pig提问任何数学问题...",
-                        show_label=False, scale=5, lines=1, max_lines=5,
-                        elem_id="msg-input"
-                    )
+                    msg  = gr.Textbox(placeholder="向pig提问任何数学问题...",
+                                      show_label=False, scale=5, lines=1, max_lines=5,
+                                      elem_id="msg-input")
                     send = gr.Button("↑", variant="primary", scale=0, elem_id="send-btn")
 
     # ── 事件 ──
@@ -544,9 +449,9 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         if db_email:
             return (gr.update(visible=False), gr.update(visible=True),
                     db_email, nickname, "",
-                    load_history(db_email), make_js(db_email))
+                    load_history(db_email))
         return (gr.update(visible=True), gr.update(visible=False),
-                None, None, f'<p style="color:red">{error}</p>', [], "")
+                None, None, f'<p style="color:red">{error}</p>', [])
 
     def handle_register(email, password, confirm):
         result = do_register(email, password, confirm)
@@ -554,25 +459,41 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
         return f'<p style="color:{color}">{result}</p>', (gr.update(selected=0) if "✅" in result else gr.update())
 
     def handle_logout():
-        return gr.update(visible=True), gr.update(visible=False), None, None, [], make_js(None)
+        return gr.update(visible=True), gr.update(visible=False), None, None, [], gr.update(visible=False), gr.update(visible=False)
+
+    def open_sidebar(email):
+        html = load_history_html(email)
+        return gr.update(visible=True), gr.update(visible=True), html
+
+    def close_sidebar():
+        return gr.update(visible=False), gr.update(visible=False)
 
     def handle_del(email):
         if email: del_last(email)
-        return load_history(email) if email else [], make_js(email)
+        hist = load_history(email) if email else []
+        html = load_history_html(email)
+        return hist, html
 
     def handle_clr(email):
         if email: clear_all(email)
-        return [], make_js(email)
+        html = load_history_html(email)
+        return [], html
 
-    login_out = [auth_page, chat_page, logged_in_user, logged_in_nick, login_msg, chatbot, data_upd]
+    login_out = [auth_page, chat_page, logged_in_user, logged_in_nick, login_msg, chatbot]
     login_btn.click(handle_login,    [login_email, login_pass], login_out)
     login_email.submit(handle_login, [login_email, login_pass], login_out)
     reg_btn.click(handle_register,   [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
 
-    btn_logout.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, data_upd])
-    btn_cc.click(lambda: [], [], [chatbot])
-    btn_del.click(handle_del, [logged_in_user], [chatbot, data_upd])
-    btn_clr.click(handle_clr, [logged_in_user], [chatbot, data_upd])
+    btn_logout.click(handle_logout, [],
+                     [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, sidebar, overlay])
+    btn_clearchat.click(lambda: [], [], [chatbot])
+
+    btn_menu.click(open_sidebar,  [logged_in_user], [sidebar, overlay, history_html])
+    btn_close_sidebar.click(close_sidebar, [], [sidebar, overlay])
+    overlay.click(close_sidebar, [], [sidebar, overlay])
+
+    btn_del.click(handle_del, [logged_in_user], [chatbot, history_html])
+    btn_clr.click(handle_clr, [logged_in_user], [chatbot, history_html])
 
     send.click(respond,  [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
     msg.submit(respond,  [msg, chatbot, deep_think, use_search, logged_in_user, logged_in_nick], [msg, chatbot])
