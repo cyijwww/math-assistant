@@ -193,22 +193,22 @@ def respond(message, chat_history, deep, search, current_user, nickname):
 
 CSS = """
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* 整体背景 */
 body, .gradio-container {
     background: #f7f7f5 !important;
     font-family: Georgia, serif !important;
     max-width: 100% !important;
+    overflow-x: hidden !important;
 }
 footer, .built-with { display: none !important; }
 
-/* ── 隐藏代理按钮列 ── */
+/* ── 隐藏代理按钮 ── */
 #proxy-col {
     position: fixed !important;
-    left: -9999px !important;
-    top: 0 !important;
-    width: 1px !important;
-    height: 1px !important;
-    overflow: hidden !important;
-    pointer-events: none !important;
+    left: -9999px !important; top: 0 !important;
+    width: 1px !important; height: 1px !important;
+    overflow: hidden !important; pointer-events: none !important;
 }
 
 /* ── 登录卡片 ── */
@@ -228,23 +228,30 @@ footer, .built-with { display: none !important; }
 }
 #auth-submit {
     background: #cc6a45 !important;
-    border-radius: 12px !important;
-    color: white !important;
-    font-size: 16px !important;
-    font-weight: 600 !important;
-    width: 100% !important;
-    padding: 12px !important;
-    border: none !important;
-    letter-spacing: 2px !important;
+    border-radius: 12px !important; color: white !important;
+    font-size: 16px !important; font-weight: 600 !important;
+    width: 100% !important; padding: 12px !important;
+    border: none !important; letter-spacing: 2px !important;
 }
 #auth-submit:hover { background: #b85a38 !important; }
 #auth-msg { text-align: center; font-size: 14px; margin-top: 8px; }
 
-/* ── 顶部导航栏 ── */
-#topbar {
+/* ══════════════════════════════════════
+   聊天页固定布局核心
+   顶栏: position fixed top
+   底栏: position fixed bottom
+   中间: margin 撑开，overflow 滚动
+   ══════════════════════════════════════ */
+
+/* 顶部导航栏 — 固定在顶部 */
+#fixed-topbar {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important;
+    z-index: 1000 !important;
     display: flex !important;
     align-items: center !important;
-    padding: 6px 10px !important;
+    padding: 0 8px !important;
+    height: 52px !important;
     background: #f7f7f5 !important;
     border-bottom: 1px solid #e5e5e0 !important;
     gap: 4px !important;
@@ -252,37 +259,31 @@ footer, .built-with { display: none !important; }
 #btn-menu, #btn-clearchat {
     background: none !important; border: none !important;
     border-radius: 8px !important; font-size: 20px !important;
-    padding: 5px 9px !important; min-width: unset !important;
+    padding: 6px 9px !important; min-width: unset !important;
     width: auto !important; color: #444 !important;
     box-shadow: none !important; line-height: 1 !important;
-    flex-shrink: 0 !important;
+    flex-shrink: 0 !important; height: 38px !important;
 }
 #btn-menu:hover, #btn-clearchat:hover { background: #e8e8e4 !important; }
 #btn-logout {
-    background: none !important;
-    border: 1px solid #ddd !important;
-    border-radius: 8px !important;
-    font-size: 13px !important;
-    padding: 5px 12px !important;
-    color: #888 !important;
-    min-width: unset !important;
-    box-shadow: none !important;
-    flex-shrink: 0 !important;
+    background: none !important; border: 1px solid #ddd !important;
+    border-radius: 8px !important; font-size: 13px !important;
+    padding: 5px 12px !important; color: #888 !important;
+    min-width: unset !important; box-shadow: none !important;
+    flex-shrink: 0 !important; height: 38px !important;
 }
 #btn-logout:hover { background: #f0f0ee !important; }
-#topbar-title {
-    flex: 1;
-    text-align: center;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1a1a1a;
+#topbar-title-div {
+    flex: 1; text-align: center;
+    font-size: 15px; font-weight: 600; color: #1a1a1a;
+    pointer-events: none;
 }
 
-/* ── 聊天区 ── */
-#chatbot { background: transparent !important; border: none !important; }
-
-/* ── 底部输入区 ── */
-#input-area {
+/* 底部输入区 — 固定在底部 */
+#fixed-bottom {
+    position: fixed !important;
+    bottom: 0 !important; left: 0 !important; right: 0 !important;
+    z-index: 1000 !important;
     background: #f7f7f5 !important;
     border-top: 1px solid #e5e5e0 !important;
     padding: 8px 12px 20px !important;
@@ -295,10 +296,9 @@ footer, .built-with { display: none !important; }
     box-shadow: 0 2px 10px rgba(0,0,0,0.07);
 }
 #msg-input textarea {
-    background: transparent !important;
-    border: none !important; outline: none !important;
-    font-size: 15px !important; resize: none !important;
-    font-family: inherit !important;
+    background: transparent !important; border: none !important;
+    outline: none !important; font-size: 15px !important;
+    resize: none !important; font-family: inherit !important;
 }
 #msg-input .wrap { border: none !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; }
 #msg-input { border: none !important; flex: 1 !important; }
@@ -310,7 +310,16 @@ footer, .built-with { display: none !important; }
     color: white !important; font-size: 20px !important;
 }
 
-.welcome-wrap { text-align: center; padding: 24px 16px 8px; }
+/* 中间聊天区 — 上下留出固定栏高度 */
+#chat-middle {
+    margin-top: 52px !important;
+    margin-bottom: 140px !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+}
+#chatbot { background: transparent !important; border: none !important; }
+
+.welcome-wrap { text-align: center; padding: 20px 16px 8px; }
 
 /* ── 侧边栏 ── */
 #pig-drawer {
@@ -331,12 +340,50 @@ footer, .built-with { display: none !important; }
 #pig-overlay.open { display: block; }
 """
 
+FIXED_TOPBAR_HTML = """
+<div id="fixed-topbar">
+  <button id="btn-menu-js" onclick="window.pigOpen()"
+    style="background:none;border:none;border-radius:8px;font-size:22px;
+           padding:6px 9px;cursor:pointer;color:#444;line-height:1;height:38px;">☰</button>
+  <div id="topbar-title-div">📐 pig</div>
+  <button id="btn-clearchat-js"
+    style="background:none;border:none;border-radius:8px;font-size:20px;
+           padding:6px 9px;cursor:pointer;color:#444;line-height:1;height:38px;">🗑</button>
+  <button id="btn-logout-js"
+    style="background:none;border:1px solid #ddd;border-radius:8px;font-size:13px;
+           padding:5px 12px;cursor:pointer;color:#888;height:38px;">退出</button>
+</div>
+
+<script>
+// 顶栏按钮 → 触发 Gradio 按钮
+document.addEventListener('click', function(e) {
+    function clickGr(id) {
+        var c = document.getElementById(id);
+        if (!c) return;
+        var b = c.querySelector('button');
+        if (b) b.click();
+    }
+    if (e.target.id === 'btn-clearchat-js') clickGr('gr-clearchat');
+    if (e.target.id === 'btn-logout-js')    clickGr('gr-logout');
+    if (e.target.id === 'js-del') {
+        clickGr('proxy-del');
+        setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
+    }
+    if (e.target.id === 'js-clr') {
+        if (!confirm('确定清空全部？')) return;
+        clickGr('proxy-clr');
+        setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
+    }
+});
+</script>
+"""
+
 DRAWER_HTML = """
 <div id="pig-overlay" onclick="pigClose()"></div>
 <div id="pig-drawer">
   <div style="padding:16px;border-bottom:1px solid #e5e5e0;display:flex;align-items:center;justify-content:space-between;">
     <span style="font-size:15px;font-weight:600;">📋 历史提问</span>
-    <button onclick="pigClose()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1;">✕</button>
+    <button onclick="pigClose()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">✕</button>
   </div>
   <div style="padding:10px 12px;display:flex;gap:8px;border-bottom:1px solid #e5e5e0;">
     <button id="js-del" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;font-size:13px;cursor:pointer;background:#fff;">🗑 删除最近一条</button>
@@ -345,7 +392,6 @@ DRAWER_HTML = """
   <div id="pig-status" style="padding:6px 16px;font-size:12px;color:#cc6a45;min-height:22px;"></div>
   <div id="pig-list" style="flex:1;overflow-y:auto;padding:8px 0;"></div>
 </div>
-
 <script>
 window._pigData = [];
 function pigClose() {
@@ -377,23 +423,6 @@ function pigStatus(msg) {
     var el = document.getElementById('pig-status');
     if (el) { el.innerText = msg; setTimeout(function(){el.innerText='';},2000); }
 }
-function clickProxy(id) {
-    var col = document.getElementById(id);
-    if (!col) return;
-    var btn = col.querySelector('button');
-    if (btn) btn.click();
-}
-document.addEventListener('click', function(e) {
-    if (e.target.id === 'js-del') {
-        clickProxy('proxy-del');
-        setTimeout(function(){ pigStatus('✅ 已删除'); pigRender(); }, 800);
-    }
-    if (e.target.id === 'js-clr') {
-        if (!confirm('确定清空全部历史记录？')) return;
-        clickProxy('proxy-clr');
-        setTimeout(function(){ pigStatus('✅ 已清空'); pigRender(); }, 800);
-    }
-});
 new MutationObserver(function(ms){
     ms.forEach(function(m){
         m.addedNodes.forEach(function(n){
@@ -448,41 +477,40 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
 
     # ── 聊天页 ──
     with gr.Column(visible=False) as chat_page:
+        # 侧边栏 HTML
         gr.HTML(DRAWER_HTML)
         data_upd = gr.HTML("")
 
-        # 代理按钮：用 Column 包住，CSS 把整个 Column 移到屏幕外
+        # 代理按钮（屏幕外）
         with gr.Column(elem_id="proxy-col"):
-            btn_del = gr.Button("del", elem_id="proxy-del")
-            btn_clr = gr.Button("clr", elem_id="proxy-clr")
+            btn_del     = gr.Button("d", elem_id="proxy-del")
+            btn_clr     = gr.Button("c", elem_id="proxy-clr")
+            btn_logout  = gr.Button("lo", elem_id="gr-logout")
+            btn_cc      = gr.Button("cc", elem_id="gr-clearchat")
 
-        # 顶部导航栏
-        with gr.Row(elem_id="topbar"):
-            btn_menu      = gr.Button("☰",  elem_id="btn-menu",      scale=0)
-            gr.HTML('<div id="topbar-title">📐 pig</div>')
-            btn_clearchat = gr.Button("🗑",  elem_id="btn-clearchat", scale=0)
-            btn_logout    = gr.Button("退出", elem_id="btn-logout",    scale=0)
+        # 固定顶栏（纯 HTML，按钮触发 Gradio 代理按钮）
+        gr.HTML(FIXED_TOPBAR_HTML)
 
-        # 欢迎语
-        gr.HTML("""
-        <div class="welcome-wrap">
-          <div style="width:52px;height:52px;background:#cc6a45;border-radius:14px;
-              display:inline-flex;align-items:center;justify-content:center;font-size:24px;
-              box-shadow:0 4px 12px rgba(204,106,69,0.3);margin-bottom:10px;">📐</div>
-          <h1 style="font-size:20px;font-weight:600;color:#1a1a1a;margin:0 0 6px;">你好，我是pig</h1>
-          <p style="font-size:13px;color:#888;margin:0;line-height:1.8;">
-            你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
-          </p>
-        </div>""")
+        # 中间滚动区
+        with gr.Column(elem_id="chat-middle"):
+            gr.HTML("""
+            <div class="welcome-wrap">
+              <div style="width:52px;height:52px;background:#cc6a45;border-radius:14px;
+                  display:inline-flex;align-items:center;justify-content:center;font-size:24px;
+                  box-shadow:0 4px 12px rgba(204,106,69,0.3);margin-bottom:10px;">📐</div>
+              <h1 style="font-size:20px;font-weight:600;color:#1a1a1a;margin:0 0 6px;">你好，我是pig</h1>
+              <p style="font-size:13px;color:#888;margin:0;line-height:1.8;">
+                你的专属大学数学辅导老师<br>微积分 · 线性代数 · 概率论 · 离散数学
+              </p>
+            </div>""")
 
-        # 聊天记录（支持多轮对话）
-        chatbot = gr.Chatbot(
-            elem_id="chatbot", show_label=False,
-            height=460, type="messages", bubble_full_width=False
-        )
+            chatbot = gr.Chatbot(
+                elem_id="chatbot", show_label=False,
+                height=500, type="messages", bubble_full_width=False
+            )
 
-        # 底部输入
-        with gr.Column(elem_id="input-area"):
+        # 固定底部输入区（纯 HTML 包裹，Gradio 组件在其中）
+        with gr.Column(elem_id="fixed-bottom"):
             with gr.Row():
                 deep_think = gr.Checkbox(label="🧠 深度思考（R1）", value=False, scale=1)
                 use_search = gr.Checkbox(label="🔍 智能搜索",       value=False, scale=1)
@@ -527,9 +555,7 @@ with gr.Blocks(theme=gr.themes.Base(), title="pig", css=CSS) as demo:
     reg_btn.click(handle_register,   [reg_email, reg_pass, reg_confirm], [reg_msg, tabs])
 
     btn_logout.click(handle_logout, [], [auth_page, chat_page, logged_in_user, logged_in_nick, chatbot, data_upd])
-    btn_clearchat.click(lambda: [], [], [chatbot])
-    btn_menu.click(None, js="() => { window.pigOpen(); }")
-
+    btn_cc.click(lambda: [], [], [chatbot])
     btn_del.click(handle_del, [logged_in_user], [chatbot, data_upd])
     btn_clr.click(handle_clr, [logged_in_user], [chatbot, data_upd])
 
